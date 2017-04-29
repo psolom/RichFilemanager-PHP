@@ -49,6 +49,10 @@ class Application extends Container {
      */
     public function __construct($basePath = null)
     {
+        if (is_null($basePath)) {
+            $basePath = realpath(__DIR__);
+        }
+
         $this->basePath = $basePath;
 
         $this->bootstrapContainer();
