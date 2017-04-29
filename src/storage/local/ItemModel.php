@@ -488,7 +488,7 @@ class ItemModel
         }
 
         // Check the user's Auth API callback:
-        if (fm_has_read_permission($this->pathAbsolute) === false) {
+        if (function_exists('fm_has_read_permission') && fm_has_read_permission($this->pathAbsolute) === false) {
             return false;
         }
 
@@ -514,7 +514,7 @@ class ItemModel
         }
 
         // Check the user's Auth API callback:
-        if (fm_has_write_permission($this->pathAbsolute) === false) {
+        if (function_exists('fm_has_write_permission') && fm_has_write_permission($this->pathAbsolute) === false) {
             return false;
         }
 
@@ -595,7 +595,7 @@ class ItemModel
         }
 
         // Check the user's Auth API callback:
-        if (fm_has_read_permission($this->pathAbsolute) === false) {
+        if (function_exists('fm_has_read_permission') && fm_has_read_permission($this->pathAbsolute) === false) {
             app()->error('NOT_ALLOWED');
         }
 
@@ -621,7 +621,7 @@ class ItemModel
         }
 
         // Check the user's Auth API callback:
-        if (fm_has_write_permission($this->pathAbsolute) === false) {
+        if (function_exists('fm_has_write_permission') && fm_has_write_permission($this->pathAbsolute) === false) {
             app()->error('NOT_ALLOWED');
         }
 

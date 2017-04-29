@@ -60,7 +60,7 @@ class Application extends Container {
         $this->registerLoggerBindings();
         $this->registerRequestBindings();
 
-        if(!fm_authenticate()) {
+        if (function_exists('fm_authenticate') && !fm_authenticate()) {
             app()->error('AUTHORIZATION_REQUIRED');
         }
     }
