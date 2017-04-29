@@ -28,6 +28,6 @@
     "psr-4": {
       "RFM\\": "src/"
     },
-    "files": ["richfilemanager/helpers.php"]
+    "files": ["src/helpers.php"]
   }
 }
