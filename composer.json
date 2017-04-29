@@ -1,0 +1,27 @@
+{
+  "name": "servocoder/richfilemanager-php",
+  "description": "PHP connector for RichFilemanager",
+  "type": "project",
+  "keywords": [
+    "richfilemanager",
+    "filemanager",
+    "connector",
+    "plugin",
+    "php"
+  ],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Pavel Solomienko",
+      "email": "servocoder@gmail.com",
+      "homepage": "http://fm.devale.pro",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "php": ">= 5.4.0",
+    "symfony/http-foundation": "2.8.*",
+    "illuminate/config": "5.2.*",
+    "illuminate/container": "5.2.*"
+  }
+}
