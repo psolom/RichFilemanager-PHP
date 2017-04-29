@@ -23,5 +23,11 @@
     "symfony/http-foundation": "2.8.*",
     "illuminate/config": "5.2.*",
     "illuminate/container": "5.2.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "RFM\\": "src/"
+    },
+    "files": ["richfilemanager/helpers.php"]
   }
 }
