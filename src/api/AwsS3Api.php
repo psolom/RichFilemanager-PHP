@@ -4,12 +4,12 @@ namespace RFM\Api;
 
 use RFM\Facade\Input;
 use RFM\Facade\Log;
-use RFM\Storage\S3\ItemModel;
+use RFM\Repository\S3\ItemModel;
 
 class AwsS3Api implements ApiInterface
 {
     /**
-     * @var \RFM\Storage\S3\Storage
+     * @var \RFM\Repository\S3\Storage
      */
     protected $storage;
 

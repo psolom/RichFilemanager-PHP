@@ -1,10 +1,10 @@
 <?php
 
-namespace RFM\Storage\Local;
+namespace RFM\Repository\Local;
 
 use RFM\Facade\Log;
-use RFM\Storage\BaseStorage;
-use RFM\Storage\StorageInterface;
+use RFM\Repository\BaseStorage;
+use RFM\Repository\StorageInterface;
 
 /**
  *	Local storage class.
@@ -21,19 +21,33 @@ class Storage extends BaseStorage implements StorageInterface
      * Being defined automatically based on configuration options.
      * Example: "/var/www/html"
      *
-     * @var mixed
+     * @var string
      */
     protected $documentRoot;
 
     /**
-     * Directory inside bucket for storing files.
-     * Can be changed via "setRoot()" method.
-     * Example: "user1" or "users/john"
+     * Full path to directory for storing user files.
+     * Being set in the configuration file and can be changed via "setRoot()" method.
+     * Example: "/var/www/html/filemanager/userfiles"
      *
      * @var string
      */
 	protected $storageRoot;
+
+    /**
+     * User files storage folder path, relative to the server document root.
+     * Being defined automatically by subtracting $documentRoot from $storageRoot.
+     *
+     * @var string
+     */
 	protected $dynamicRoot;
+
+    /**
+     * Default folder name. Affect only in case $storageRoot is not defined explicitly.
+     * In such a case it is appended to $documentRoot and thus forms default $storageRoot.
+     *
+     * @var string
+     */
     protected $defaultDir = 'userfiles';
 
     /**

@@ -5,7 +5,7 @@ namespace RFM;
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
 use Symfony\Component\HttpFoundation\Request;
-use RFM\Storage\StorageInterface;
+use RFM\Repository\StorageInterface;
 use RFM\API\ApiInterface;
 
 // path to "application" folder

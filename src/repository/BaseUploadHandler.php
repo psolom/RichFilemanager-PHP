@@ -1,6 +1,6 @@
 <?php
 
-namespace RFM\Storage;
+namespace RFM\Repository;
 
 /*
  * jQuery File Upload Plugin PHP Class

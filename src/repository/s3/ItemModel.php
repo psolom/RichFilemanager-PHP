@@ -1,6 +1,6 @@
 <?php
 
-namespace RFM\Storage\Local;
+namespace RFM\Repository\S3;
 
 use RFM\Facade\Log;
 
@@ -117,7 +117,7 @@ class ItemModel
      */
     public function __construct($path, $isThumbnail = false)
     {
-        $this->storage = app()->getStorage('local');
+        $this->storage = app()->getStorage('s3');
         $this->pathRelative = $path;
         $this->isThumbnail = $isThumbnail;
         $this->pathAbsolute = $this->getAbsolutePath();
@@ -133,39 +133,21 @@ class ItemModel
     public function getInfo()
     {
         $pathInfo = pathinfo($this->pathAbsolute);
-        $filemtime = filemtime($this->pathAbsolute);
+        $filemtime = @filemtime($this->pathAbsolute);
 
-        // check file permissions
-        $isReadable = $this->hasReadPermission();
-        $isWritable = $this->hasWritePermission();
-
-        if ($this->isDir) {
+        if($this->isDir) {
             $model = $this->folderModel;
         } else {
             $model = $this->fileModel;
+            $model['attributes']['size'] = filesize($this->pathAbsolute);
             $model['attributes']['extension'] = isset($pathInfo['extension']) ? $pathInfo['extension'] : '';
-
-            if ($isReadable) {
-                $model['attributes']['size'] = $this->storage->getRealFileSize($this->pathAbsolute);
-
-                if ($this->isImageFile()) {
-                    if ($model['attributes']['size']) {
-                        list($width, $height, $type, $attr) = getimagesize($this->pathAbsolute);
-                    } else {
-                        list($width, $height) = [0, 0];
-                    }
-
-                    $model['attributes']['width'] = $width;
-                    $model['attributes']['height'] = $height;
-                }
-            }
         }
 
         $model['id'] = $this->pathRelative;
         $model['attributes']['name'] = $pathInfo['basename'];
         $model['attributes']['path'] = $this->getDynamicPath();
-        $model['attributes']['readable'] = (int)$isReadable;
-        $model['attributes']['writable'] = (int)$isWritable;
+        $model['attributes']['readable'] = 1;
+        $model['attributes']['writable'] = 1;
         $model['attributes']['timestamp'] = $filemtime;
         $model['attributes']['modified'] = $this->storage->formatDate($filemtime);
         //$model['attributes']['created'] = $model['attributes']['modified']; // PHP cannot get create timestamp
@@ -216,6 +198,9 @@ class ItemModel
      * In case item doesn't exists we check the trailing slash.
      * That is why it's important to add slashes to the wnd of folders path.
      *
+     * S3 differs directory by slash (/) in the end of path. Could be used to check non-existent or cached object.
+     * @link http://stackoverflow.com/questions/22312833/how-can-you-tell-if-an-object-is-a-folder-on-aws-s3
+     *
      * @return bool
      */
     public function getIsDirectory()
@@ -245,7 +230,13 @@ class ItemModel
      */
     public function getAbsolutePath()
     {
-        return $this->storage->cleanPath($this->storage->getRoot() . '/' . $this->pathRelative);
+        if ($this->isThumbnail && $this->storage->config('images.thumbnail.useLocalStorage')) {
+            $pathRoot = app()->getStorage('local')->getRoot();
+        } else {
+            $pathRoot = $this->storage->getRoot();
+        }
+
+        return rtrim($pathRoot, '/') . $this->pathRelative;
     }
 
     /**
@@ -316,25 +307,52 @@ class ItemModel
 
     /**
      * Check whether file is image, based on its mime type.
+     * Don't use native "mime_content_type" function since it doesn't work with stream wrappers.
      *
      * @return string
      */
     public function isImageFile()
     {
-        $mime = mime_content_type($this->pathAbsolute);
+        $mime = mime_type_by_extension($this->pathAbsolute);
 
         return $this->storage->isImageMimeType($mime);
     }
 
     /**
+     * Retrieve mime type of S3 object.
+     *
+     * @return string
+     */
+    public function getMimeType()
+    {
+        $meta = $this->storage->getMetaData($this->getDynamicPath());
+        $type = $meta['content-type'];
+        $parts = explode('/', $type);
+
+        // try to define mime type based on file extension if default "octet-stream" is obtained
+        if((end($parts) === 'octet-stream')) {
+            $type = mime_type_by_extension($this->pathRelative);
+        }
+        return $type;
+    }
+
+    /**
      * Remove current file or folder.
+     *
+     * @return bool
      */
     public function remove()
     {
         if ($this->isDir) {
-            $this->storage->unlinkRecursive($this->pathAbsolute);
+            if ($this->isThumbnail && $this->storage->config('images.thumbnail.useLocalStorage')) {
+                return app()->getStorage('local')->unlinkRecursive($this->pathAbsolute);
+            } else {
+                $key = $this->getDynamicPath();
+                $this->storage->s3->batchDelete($key);
+                return !$this->storage->isObjectExists($key);
+            }
         } else {
-            unlink($this->pathAbsolute);
+            return unlink($this->pathAbsolute);
         }
     }
 
@@ -529,23 +547,23 @@ class ItemModel
      */
     public function isValidPath()
     {
-        $rootPath = $this->storage->getRoot();
-        $rpSubstr = substr(realpath($this->pathAbsolute) . DS, 0, strlen(realpath($rootPath))) . DS;
-        $rpFiles = realpath($rootPath) . DS;
-
-        // handle better symlinks & network path
-        $pattern = ['/\\\\+/', '/\/+/'];
-        $replacement = ['\\\\', '/'];
-        $rpSubstr = preg_replace($pattern, $replacement, $rpSubstr);
-        $rpFiles = preg_replace($pattern, $replacement, $rpFiles);
-        $match = ($rpSubstr === $rpFiles);
-
-        if (!$match) {
-            Log::info('Invalid path "' . $this->pathAbsolute . '"');
-            Log::info('real path: "' . $rpSubstr . '"');
-            Log::info('path to files: "' . $rpFiles . '"');
+        $valid = true;
+        if(strpos($this->pathAbsolute, $this->storage->getRoot()) !== 0) {
+            $valid = false;
         }
-        return $match;
+
+        $needleList = ['..', './'];
+        foreach($needleList as $needle) {
+            if (strpos($this->pathAbsolute, $needle) !== false) {
+                $valid = false;
+                break;
+            }
+        }
+
+        if (!$valid) {
+            Log::info('Invalid path "' . $this->pathAbsolute . '"');
+        }
+        return $valid;
     }
 
     /**

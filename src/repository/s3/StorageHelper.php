@@ -1,6 +1,6 @@
 <?php
 
-namespace RFM\Storage\S3;
+namespace RFM\Repository\S3;
 
 use Aws\S3\S3Client;
 use GuzzleHttp\Psr7;

@@ -4,12 +4,12 @@ namespace RFM\Api;
 
 use RFM\Facade\Input;
 use RFM\Facade\Log;
-use RFM\Storage\Local\ItemModel;
+use RFM\Repository\Local\ItemModel;
 
 class LocalApi implements ApiInterface
 {
     /**
-     * @var \RFM\Storage\Local\Storage
+     * @var \RFM\Repository\Local\Storage
      */
     protected $storage;
 

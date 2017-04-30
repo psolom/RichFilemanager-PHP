@@ -1,10 +1,10 @@
 <?php
 
-namespace RFM\Storage\S3;
+namespace RFM\Repository\S3;
 
 use RFM\Facade\Log;
-use RFM\Storage\BaseStorage;
-use RFM\Storage\StorageInterface;
+use RFM\Repository\BaseStorage;
+use RFM\Repository\StorageInterface;
 
 /**
  *	AWS S3 storage class.
