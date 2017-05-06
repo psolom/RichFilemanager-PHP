@@ -28,6 +28,10 @@ class AwsS3Api implements ApiInterface
     {
         // config options that affect the client-side
         $shared_config = [
+            'options' => [
+                // achiving of folders doesn't supported for S3 storage
+                'allowFolderDownload' => false,
+            ],
             'security' => [
                 'readOnly' => $this->storage->config('security.readOnly'),
                 'extensions' => [
