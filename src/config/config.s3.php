@@ -13,10 +13,10 @@
 $config = require 'config.local.php';
 
 /**
- * Default value "true".
+ * Default value "false".
  * Whether to store images thumbnails locally (faster; save traffic and requests)
  */
-$config['images']['thumbnail']['useLocalStorage'] = true;
+$config['images']['thumbnail']['useLocalStorage'] = false;
 
 /**
  * Default value "true".
@@ -40,16 +40,17 @@ $config['allowBulk'] = true;
  * Check options description: https://github.com/frostealth/yii2-aws-s3
  ******************************************************************************/
 
-$config['credentials'] = array(
+$config['credentials'] = [
     'region' => 'your region',
     'bucket' => 'your aws s3 bucket',
-    'credentials' => array( // Aws\Credentials\CredentialsInterface|array|callable
+    // Aws\Credentials\CredentialsInterface|array|callable
+    'credentials' => [
         'key' => 'your aws s3 key',
         'secret' => 'your aws s3 secret',
-    ),
+    ],
     'defaultAcl' => '',
     //'cdnHostname' => 'http://example.cloudfront.net',
     'debug' => false, // bool|array
-);
+];
 
 return $config;
