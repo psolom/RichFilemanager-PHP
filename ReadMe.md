@@ -27,6 +27,7 @@ composer require servocoder/richfilemanager-php
 ```
 
 NOTE: Most likely you won't have to install PHP connector separately. It's sufficient to run composer of the main package.
+Check out the [installation guide](https://github.com/servocoder/RichFilemanager/wiki/PHP-connector) of RichFilemanager main package for PHP connector.
 
 **AWS PHP SDK**
 
