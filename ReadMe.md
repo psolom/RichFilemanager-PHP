@@ -154,7 +154,7 @@ $config_s3 = [
             'key' => 'your aws s3 key',
             'secret' => 'your aws s3 secret',
         ],
-        'defaultAcl' => '',
+        'defaultAcl' => \RFM\Repository\S3\StorageHelper::ACL_PUBLIC_READ,
         'debug' => false,
     ],
 ];
