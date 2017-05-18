@@ -621,7 +621,7 @@ class LocalApi implements ApiInterface
             $targetPath = $model->pathAbsolute;
 
             if ($model->isDir) {
-                $destinationPath = sys_get_temp_dir() . '/rfm_' . uniqid() . '.zip';
+                $destinationPath = sys_get_temp_dir() . '/' . basename($model->pathAbsolute) . '.zip';
 
                 // if Zip archive is created
                 if ($this->storage->zipFile($targetPath, $destinationPath, true)) {
