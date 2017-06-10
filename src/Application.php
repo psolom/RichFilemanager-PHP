@@ -60,15 +60,12 @@ class Application extends Container {
         $this->registerLoggerBindings();
         $this->registerRequestBindings();
 
-        if (function_exists('fm_authenticate') && fm_authenticate() !== true) {
+        if (function_exists('fm_authenticate')) {
             $authenticated = fm_authenticate();
 
-            if (is_string($authenticated)) {
-                app()->error('AUTHORIZATION_REQUIRED', ["redirect" => $authenticated]);
-            }
-
-            if (!$authenticated) {
-                app()->error('AUTHORIZATION_REQUIRED');
+            if ($authenticated !== true) {
+                $args = is_array($authenticated) ? $authenticated : [];
+                app()->error('AUTHORIZATION_REQUIRED', $args);
             }
         }
     }
