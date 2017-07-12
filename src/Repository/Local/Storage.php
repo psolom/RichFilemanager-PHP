@@ -102,17 +102,20 @@ class Storage extends BaseStorage implements StorageInterface
      * @param bool $makeDir
      * @param bool $relativeToDocumentRoot
      */
-	public function setRoot($path, $makeDir = false, $relativeToDocumentRoot = false)
+	public function setRoot($path, $makeDir = false, $relativeToDocumentRoot = null)
     {
-        $this->storageRoot = $path . '/';
+        // prevent to override config file settings
+        if (is_bool($relativeToDocumentRoot)) {
+            $this->storageRoot = $path . '/';
 
-        if($relativeToDocumentRoot) {
-            $this->storageRoot = $this->documentRoot . '/' . $this->storageRoot;
+            if($relativeToDocumentRoot === true) {
+                $this->storageRoot = $this->documentRoot . '/' . $this->storageRoot;
+            }
+
+            // normalize slashes in paths
+            $this->storageRoot = $this->cleanPath($this->storageRoot);
+            $this->dynamicRoot = $this->subtractPath($this->storageRoot, $this->documentRoot);
         }
-
-        // normalize slashes in paths
-        $this->storageRoot = $this->cleanPath($this->storageRoot);
-        $this->dynamicRoot = $this->subtractPath($this->storageRoot, $this->documentRoot);
 
 		Log::info('Overwritten with setRoot() method:');
 		Log::info('$this->storageRoot: "' . $this->storageRoot . '"');
