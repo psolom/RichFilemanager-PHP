@@ -50,11 +50,6 @@ class StorageHelper
     public $defaultAcl;
 
     /**
-     * @var bool
-     */
-    public $usePathStyleEndpoint;
-
-    /**
      * @var string
      */
     public $endpoint;
@@ -99,7 +94,6 @@ class StorageHelper
             'version' => '2006-03-01',
             'region' => $this->region,
             'endpoint' => $this->endpoint,
-            'use_path_style_endpoint' => $this->usePathStyleEndpoint,
             'credentials' => $this->credentials,
             'debug' => $this->debug,
         ]);

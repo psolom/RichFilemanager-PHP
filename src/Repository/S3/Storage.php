@@ -68,11 +68,10 @@ class Storage extends BaseStorage implements StorageInterface
         $storage = new StorageHelper;
         $storage->region = $this->config('credentials.region');
         $storage->bucket = $this->config('credentials.bucket');
+        $storage->endpoint = $this->config('credentials.endpoint');
         $storage->credentials = $this->config('credentials.credentials');
         $storage->defaultAcl = $this->config('credentials.defaultAcl');
         $storage->cdnHostname = $this->config('credentials.cdnHostname');
-        $storage->endpoint = $this->config('credentials.endpoint');
-        $storage->usePathStyleEndpoint = $this->config('credentials.usePathStyleEndpoint', false);
         $storage->debug = $this->config('credentials.debug', false);
         $storage->options = $this->config('credentials.options', []);
         $storage->init();
