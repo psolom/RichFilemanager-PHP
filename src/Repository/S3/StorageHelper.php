@@ -50,6 +50,16 @@ class StorageHelper
     public $defaultAcl;
 
     /**
+     * @var bool
+     */
+    public $usePathStyleEndpoint;
+
+    /**
+     * @var string
+     */
+    public $endpoint;
+
+    /**
      * @var bool|array
      */
     public $debug = false;
@@ -88,6 +98,8 @@ class StorageHelper
         $args = $this->prepareArgs($this->options, [
             'version' => '2006-03-01',
             'region' => $this->region,
+            'endpoint' => $this->endpoint,
+            'use_path_style_endpoint' => $this->usePathStyleEndpoint,
             'credentials' => $this->credentials,
             'debug' => $this->debug,
         ]);
