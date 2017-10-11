@@ -258,33 +258,43 @@ class UploadHandler extends BaseUploadHandler
             }
             $append_file = $content_range && is_file($file->path) &&
                 $file->size > $this->get_file_size($file->path);
+
+
+            $s3_stream_options = array();
+
+            if (!empty($this->storage->s3->options[Storage::OPTION_UPLOAD])) {
+                $s3_stream_options += $this->storage->s3->options[Storage::OPTION_UPLOAD];
+            }
+
             if ($uploaded_file && is_uploaded_file($uploaded_file)) {
+                $s3_stream_options += array(
+                    // it's possible to define mime type only for the first chunk of a file, but each consecutive
+                    // chunk that appended overrides object's ContentType to the S3 default "binary/octet-stream".
+                    // The only solutions is to define mime type based on file extension
+                    'ContentType' => mime_type_by_extension($name),
+                    'ACL' => $this->storage->s3->defaultAcl,
+                );
                 // multipart/formdata uploads (POST method uploads)
                 file_put_contents(
                     $file->path,
                     fopen($uploaded_file, 'r'),
                     $append_file ? FILE_APPEND : 0,
                     stream_context_create(array(
-                        's3' => array(
-                            // it's possible to define mime type only for the first chunk of a file, but each consecutive
-                            // chunk that appended overrides object's ContentType to the S3 default "binary/octet-stream".
-                            // The only solutions is to define mime type based on file extension
-                            'ContentType' => mime_type_by_extension($name),
-                            'ACL' => $this->storage->s3->defaultAcl,
-                        )
+                        's3' => $s3_stream_options
                     ))
                 );
             } else {
+                $s3_stream_options += array(
+                    // define mime type of stream content
+                    'ContentType' => mime_content_type($uploaded_file)
+                );
                 // Non-multipart uploads (PUT method support)
                 file_put_contents(
                     $file->path,
                     fopen($this->options['input_stream'], 'r'),
                     $append_file ? FILE_APPEND : 0,
                     stream_context_create(array(
-                        's3' => array(
-                            // define mime type of stream content
-                            'ContentType' => mime_content_type($uploaded_file)
-                        )
+                        's3' => $s3_stream_options
                     ))
                 );
             }

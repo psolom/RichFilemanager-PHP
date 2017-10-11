@@ -16,6 +16,8 @@ use RFM\Repository\StorageInterface;
 
 class Storage extends BaseStorage implements StorageInterface
 {
+    const OPTION_UPLOAD = 'upload';
+
     /**
      * Full path to S3 storage bucket including protocol.
      * Being built automatically at the base of S3 credentials.

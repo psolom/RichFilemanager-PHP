@@ -51,6 +51,11 @@ $config['credentials'] = [
     'defaultAcl' => '',
     //'cdnHostname' => 'http://example.cloudfront.net',
     'debug' => false, // bool|array
+    /*'options' => [
+        'upload' => [ // Configuration specific for upload actions
+            'ServerSideEncryption' => false, // bool|string (AES256,aws:kms)
+        ],
+    ],*/
 ];
 
 return $config;

@@ -5,6 +5,7 @@ namespace RFM\Api;
 use RFM\Facade\Input;
 use RFM\Facade\Log;
 use RFM\Repository\S3\ItemModel;
+use RFM\Repository\S3\Storage;
 
 class AwsS3Api implements ApiInterface
 {
@@ -175,7 +176,15 @@ class AwsS3Api implements ApiInterface
             app()->error('DIRECTORY_ALREADY_EXISTS', [$targetName]);
         }
 
-        if (!mkdir($model->pathAbsolute, 0755)) {
+        $context = null;
+
+        if (!empty($this->storage->s3->options[Storage::OPTION_UPLOAD])) {
+            $context = stream_context_create(array(
+                's3' => $this->storage->s3->options[Storage::OPTION_UPLOAD]
+            ));
+        }
+
+        if (!mkdir($model->pathAbsolute, 0755, false, $context)) {
             app()->error('UNABLE_TO_CREATE_DIRECTORY', [$targetName]);
         }
 
