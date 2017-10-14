@@ -43,12 +43,16 @@ $config['allowBulk'] = true;
 $config['credentials'] = [
     'region' => 'your region',
     'bucket' => 'your aws s3 bucket',
+    'endpoint' => null,
     // Aws\Credentials\CredentialsInterface|array|callable
     'credentials' => [
         'key' => 'your aws s3 key',
         'secret' => 'your aws s3 secret',
     ],
-    'defaultAcl' => '',
+    'options' => [
+        'use_path_style_endpoint' => false,
+    ],
+    'defaultAcl' => \RFM\Repository\S3\StorageHelper::ACL_PUBLIC_READ,
     //'cdnHostname' => 'http://example.cloudfront.net',
     'debug' => false, // bool|array
 ];
