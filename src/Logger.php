@@ -87,9 +87,9 @@ class Logger {
         $forward = isset($_SERVER['HTTP_X_FORWARDED_FOR']) ? $_SERVER['HTTP_X_FORWARDED_FOR'] : null;
         $remote  = $_SERVER['REMOTE_ADDR'];
 
-        if (filter_var($client, FILTER_VALIDATE_IP)) {
+        if ($client && filter_var($client, FILTER_VALIDATE_IP)) {
             $ip = $client;
-        } elseif (filter_var($forward, FILTER_VALIDATE_IP)) {
+        } elseif ($forward && filter_var($forward, FILTER_VALIDATE_IP)) {
             $ip = $forward;
         } else {
             $ip = $remote;
