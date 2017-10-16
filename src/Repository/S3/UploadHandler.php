@@ -253,9 +253,13 @@ class UploadHandler extends BaseUploadHandler
         if ($this->validate($uploaded_file, $file, $error, $index)) {
             $this->handle_form_data($file, $index);
             $upload_dir = $this->get_upload_path();
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, $this->options['mkdir_mode'], true);
+            // create model of target folder to fetch ACL policies
+            $modelTarget = new ItemModel($this->storage->getRelativePath($upload_dir));
+
+            if (!$modelTarget->isExists) {
+                $this->storage->createFolder($modelTarget, $this->model);
             }
+            $acl_params = $modelTarget->getAclParams();
             $append_file = $content_range && is_file($file->path) &&
                 $file->size > $this->get_file_size($file->path);
             if ($uploaded_file && is_uploaded_file($uploaded_file)) {
@@ -264,15 +268,14 @@ class UploadHandler extends BaseUploadHandler
                     $file->path,
                     fopen($uploaded_file, 'r'),
                     $append_file ? FILE_APPEND : 0,
-                    stream_context_create(array(
-                        's3' => array(
+                    stream_context_create([
+                        's3' => array_merge($acl_params, [
                             // it's possible to define mime type only for the first chunk of a file, but each consecutive
                             // chunk that appended overrides object's ContentType to the S3 default "binary/octet-stream".
                             // The only solutions is to define mime type based on file extension
                             'ContentType' => mime_type_by_extension($name),
-                            'ACL' => $this->storage->s3->defaultAcl,
-                        )
-                    ))
+                        ]),
+                    ])
                 );
             } else {
                 // Non-multipart uploads (PUT method support)
@@ -280,12 +283,12 @@ class UploadHandler extends BaseUploadHandler
                     $file->path,
                     fopen($this->options['input_stream'], 'r'),
                     $append_file ? FILE_APPEND : 0,
-                    stream_context_create(array(
-                        's3' => array(
+                    stream_context_create([
+                        's3' => array_merge($acl_params, [
                             // define mime type of stream content
                             'ContentType' => mime_content_type($uploaded_file)
-                        )
-                    ))
+                        ]),
+                    ])
                 );
             }
             $file_size = $this->get_file_size($file->path, $append_file);

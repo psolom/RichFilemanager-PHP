@@ -601,4 +601,66 @@ class ItemModel extends BaseItemModel
         // Nothing is restricting access to this file, so it is writable
         return;
     }
+
+    /**
+     * Return ACL parameters in acceptable format for "putObject" API method.
+     * Reference: http://docs.aws.amazon.com/aws-sdk-php/v3/api/class-Aws.S3.S3Client.html
+     *
+     * @return array
+     */
+    public function getAclParams()
+    {
+        $aclParams = [];
+
+        // use default ACL policy by default
+        if ($this->storage->aclPolicy === StorageHelper::ACL_POLICY_DEFAULT) {
+            $aclParams['ACL'] = $this->storage->s3->defaultAcl;
+        }
+
+        // generate ACL related params based on ACL policies
+        if ($this->storage->aclPolicy === StorageHelper::ACL_POLICY_INHERIT) {
+            $acl = $this->getAclPermissions();
+
+            // transform result of "getObjectAcl"
+            if ($acl && isset($acl['Grants']) && is_array($acl['Grants'])) {
+                foreach ($acl['Grants'] as $grant) {
+                    if (isset($grant['Grantee']) && is_array($grant['Grantee']) && isset($grant['Permission'])) {
+                        $properties = [];
+                        foreach ($grant['Grantee'] as $key => $value) {
+                            $properties[] = strtolower($key) . '=' . $value;
+                        }
+
+                        $permission = 'Grant' . implode('', array_map('ucfirst', explode('_', $grant['Permission'])));
+                        $normalizeFunc = function($value) {
+                            if ($value !== 'ACP') {
+                                $value = ucfirst(strtolower($value));
+                            }
+                            return $value;
+                        };
+                        // Output examples: FULL_ACCESS => GrantFullAccess; READ_ACP => GrantReadACP; etc.
+                        $permission = 'Grant' . implode('', array_map($normalizeFunc, explode('_', $grant['Permission'])));
+                        $aclParams[$permission] = implode(',', $properties);
+                    }
+                }
+            }
+        }
+
+        return $aclParams;
+    }
+
+    /**
+     * Fetch ACL policies for object.
+     *
+     * @return \Aws\ResultInterface
+     * @throws \Exception
+     */
+    public function getAclPermissions()
+    {
+        if ($this->isThumbnail && $this->storage->config('images.thumbnail.useLocalStorage')) {
+            throw new \Exception('Tring to get ACL policies for non S3 object.');
+        }
+
+        $key = $this->getDynamicPath();
+        return $this->storage->s3->getObjectAcl($key);
+    }
 }

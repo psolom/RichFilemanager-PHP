@@ -34,6 +34,29 @@ $config['images']['thumbnail']['useLocalStorage'] = false;
  */
 $config['allowBulk'] = true;
 
+/**
+ * Each bucket or object (file or folder) at S3 storage has an Access Control List (ACL) attached to it as a subresource.
+ * It defines which AWS accounts or groups are granted access and the type of access.
+ *
+ * When you perform create or update operations on S3 object there are 2 ways to deal with ACL:
+ *
+ * 1. ACL_POLICY_DEFAULT
+ * Apply "defaultAcl" policy (see below) to all S3 objects regardless of the operation.
+ * Used by default. It's a rough way, but appropriate if all your objects are assumed to share a single ACL policy.
+ *
+ * 2. ACL_POLICY_INHERIT
+ * Inherits the ACL policies of a source/parent object.
+ * When your create new folder or upload new file it will take ACL rules of parent object (or bucket if root).
+ * When you perform operation on existing S3 object (copy/move/rename) it will preserve ACL rules of source object.
+ *
+ * NOTE: S3 doesn't provide ACL policies along with object data.
+ * An additional GET request will be sent to retrieve ACL policies for each source/parent object.
+ * This will result in regression of RFM responsiveness and extra charges of AWS billing.
+ * For example, if you copy/move/rename an object that contains 1000 nested objects you will be billed for another 1000 of GET requests.
+ * Original discussion: https://github.com/servocoder/RichFilemanager-PHP/issues/6
+ */
+$config['aclPolicy'] = \RFM\Repository\S3\StorageHelper::ACL_POLICY_DEFAULT;
+
 
 /*******************************************************************************
  * S3 SETTINGS

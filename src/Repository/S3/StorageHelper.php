@@ -22,7 +22,10 @@ class StorageHelper
     const ACL_PUBLIC_READ_WRITE = 'public-read-write';
     const ACL_AUTHENTICATED_READ = 'authenticated-read';
     const ACL_BUCKET_OWNER_READ = 'bucket-owner-read';
-    const ALC_BUCKET_OWNER_FULL_CONTROL = 'bucket-owner-full-control';
+    const ACL_BUCKET_OWNER_FULL_CONTROL = 'bucket-owner-full-control';
+
+    const ACL_POLICY_DEFAULT = 'default';
+    const ACL_POLICY_INHERIT = 'inherit';
 
     /**
      * @var \Aws\Credentials\CredentialsInterface|array|callable
@@ -116,13 +119,13 @@ class StorageHelper
     /**
      * @inheritDoc
      */
-    public function put($key, $data, $acl = null, array $options = [])
+    public function put($key, $data = '', array $options = [])
     {
+        $options = $this->applyAclPolicy($options);
         $args = $this->prepareArgs($options, [
             'Bucket' => $this->bucket,
             'Key' => $key,
             'Body' => $data,
-            'ACL' => !empty($acl) ? $acl : $this->defaultAcl,
         ]);
 
         return $this->execute('PutObject', $args);
@@ -148,6 +151,17 @@ class StorageHelper
     public function exist($key, array $options = [])
     {
         return $this->getClient()->doesObjectExist($this->bucket, $key, $options);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getObjectAcl($key)
+    {
+        return $this->execute('getObjectAcl', [
+            'Bucket' => $this->bucket,
+            'Key' => $key,
+        ]);
     }
 
     /**
@@ -336,6 +350,28 @@ class StorageHelper
     public function batchDelete($key)
     {
         $this->getClient()->deleteMatchingObjects($this->bucket, $key);
+    }
+
+    /**
+     * Apply ACL policies based on given options.
+     *
+     * @param $options
+     * @return mixed
+     */
+    protected function applyAclPolicy($options)
+    {
+        // specifying both ACL and Grant... options is not allowed
+        foreach ($options as $name => $value) {
+            if (starts_with($name, 'Grant')) {
+                return $options;
+            }
+        }
+
+        if (!isset($options['ACL'])) {
+            $options['ACL'] = $this->defaultAcl;
+        }
+
+        return $options;
     }
 
     /**

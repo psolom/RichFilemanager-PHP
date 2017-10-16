@@ -42,6 +42,13 @@ class Storage extends BaseStorage implements StorageInterface
     public $s3 = null;
 
     /**
+     * ACL policy accorging to the configuration file.
+     *
+     * @var string
+     */
+    public $aclPolicy = null;
+
+    /**
      * Storage constructor.
      *
      * @param array $config
@@ -77,6 +84,7 @@ class Storage extends BaseStorage implements StorageInterface
         $storage->init();
 
         $this->s3 = $storage;
+        $this->aclPolicy = $this->config('aclPolicy', []);
     }
 
     /**
@@ -88,8 +96,8 @@ class Storage extends BaseStorage implements StorageInterface
         $this->storageRoot = $this->getS3WrapperPath($this->dynamicRoot);
 
         if($makeDir === true && !is_dir($this->storageRoot)) {
-            Log::info('creating "' . $this->storageRoot . '" folder through mkdir()');
-            mkdir($this->storageRoot, 0755, true);
+            Log::info('creating "' . $this->storageRoot . '" root folder');
+            $this->s3->put($this->dynamicRoot . '/');
         }
     }
 
@@ -255,32 +263,79 @@ class Storage extends BaseStorage implements StorageInterface
     }
 
     /**
+     * Create folder respecting parent folder ACL policies.
+     *
+     * @param ItemModel $target
+     * @param ItemModel $prototype
+     * @return bool
+     */
+    public function createFolder($target, $prototype = null)
+    {
+        $options = [];
+        if ($this->aclPolicy === StorageHelper::ACL_POLICY_INHERIT) {
+            if (is_null($prototype)) {
+                $prototype = $target->closest();
+            }
+            $prototype->getAclParams();
+        }
+
+        return $this->s3->put($target->getDynamicPath(), '', $options);
+    }
+
+    /**
+     * Copy item from source to target destination.
+     *
+     * @param ItemModel $source
+     * @param ItemModel $target
+     * @param bool $remove
+     * @return bool
+     */
+    public function copyItem($source, $target, $remove = false)
+    {
+        $context = stream_context_create([
+            's3' => $source->getAclParams(),
+        ]);
+
+        $copied = copy($source->pathAbsolute, $target->pathAbsolute, $context);
+
+        if ($copied && $remove === true) {
+            $path = $source->getDynamicPath();
+            $this->s3->delete($source->getDynamicPath());
+        }
+
+        return $copied;
+    }
+
+    /**
      * Copy a single file or a whole directory.
      * In case of directory it will be copied recursively.
      *
-     * @param string $source - absolute path
-     * @param string $target - absolute path
+     * @param ItemModel $source
+     * @param ItemModel $target
      * @return bool
      */
     public function copyRecursive($source, $target)
     {
         $flag = true;
-        if (is_dir($source)) {
-            $files = $this->getFilesList(rtrim($source, '/'));
+        if ($source->isDir) {
+            $files = $this->getFilesList(rtrim($source->pathAbsolute, '/'));
             $files = array_reverse($files);
-            $flag = $flag && mkdir($target, 0755);
+            $flag = $flag && $this->createFolder($target, $source);
 
             foreach ($files as $path) {
-                $pathNew = str_replace($source, $target, $path);
+                $pattern = preg_quote($source->pathAbsolute);
+                $relativePath = preg_replace("#^{$pattern}#", '', $path);
+                $itemSource = new ItemModel($source->pathRelative . $relativePath);
+                $itemTarget = new ItemModel($target->pathRelative . $relativePath);
 
-                if (is_dir($path)) {
-                    $flag = $flag && mkdir($pathNew, 0755);
+                if ($itemSource->isDir) {
+                    $flag = $flag && $this->createFolder($itemTarget, $itemSource);
                 } else {
-                    $flag = $flag && copy($path, $pathNew);
+                    $flag = $flag && $this->copyItem($itemSource, $itemTarget);
                 }
             }
         } else {
-            $flag = $flag && copy($source, $target);
+            $flag = $flag && $this->copyItem($source, $target);
         }
 
         return $flag;
@@ -290,31 +345,34 @@ class Storage extends BaseStorage implements StorageInterface
      * Rename/move a single file or a whole directory.
      * In case of directory it will be copied recursively.
      *
-     * @param string $source - absolute path
-     * @param string $target - absolute path
+     * @param ItemModel $source
+     * @param ItemModel $target
      * @return bool
      */
     public function renameRecursive($source, $target)
     {
         $flag = true;
-        if (is_dir($source)) {
-            $files = $this->getFilesList(rtrim($source, '/'));
+        if ($source->isDir) {
+            $files = $this->getFilesList(rtrim($source->pathAbsolute, '/'));
             $files = array_reverse($files);
-            $flag = $flag && mkdir($target, 0755);
+            $flag = $flag && $this->createFolder($target, $source);
 
             foreach ($files as $path) {
-                $pathNew = str_replace($source, $target, $path);
+                $pattern = preg_quote($source->pathAbsolute);
+                $relativePath = preg_replace("#^{$pattern}#", '', $path);
+                $itemSource = new ItemModel($source->pathRelative . $relativePath);
+                $itemTarget = new ItemModel($target->pathRelative . $relativePath);
 
-                if (is_dir($path)) {
-                    $flag = $flag && mkdir($pathNew, 0755);
-                    rmdir($path);
+                if ($itemSource->isDir) {
+                    $flag = $flag && $this->createFolder($itemTarget, $itemSource);
+                    rmdir($itemSource->pathAbsolute);
                 } else {
-                    $flag = $flag && rename($path, $pathNew);
+                    $flag = $flag && $this->copyItem($itemSource, $itemTarget, true);
                 }
             }
-            rmdir($source);
+            rmdir($source->pathAbsolute);
         } else {
-            $flag = $flag && rename($source, $target);
+            $flag = $flag && $this->copyItem($source, $target, true);
         }
 
         return $flag;
@@ -363,5 +421,4 @@ class Storage extends BaseStorage implements StorageInterface
 
         return $result;
 	}
-
 }

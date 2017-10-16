@@ -175,7 +175,7 @@ class AwsS3Api implements ApiInterface
             app()->error('DIRECTORY_ALREADY_EXISTS', [$targetName]);
         }
 
-        if (!mkdir($model->pathAbsolute, 0755)) {
+        if (!$this->storage->createFolder($model)) {
             app()->error('UNABLE_TO_CREATE_DIRECTORY', [$targetName]);
         }
 
@@ -231,14 +231,14 @@ class AwsS3Api implements ApiInterface
             }
         }
 
-        if ($this->storage->renameRecursive($modelOld->pathAbsolute, $modelNew->pathAbsolute)) {
+        if ($this->storage->renameRecursive($modelOld, $modelNew)) {
             Log::info('renamed "' . $modelOld->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
 
             if ($modelThumbOld->isExists) {
                 if ($this->storage->config('images.thumbnail.useLocalStorage')) {
                     rename($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
                 } else {
-                    $this->storage->renameRecursive($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
+                    $this->storage->renameRecursive($modelThumbOld, $modelThumbNew);
                 }
             }
         } else {
@@ -305,14 +305,14 @@ class AwsS3Api implements ApiInterface
             $modelThumbOld->checkReadPermission();
         }
 
-        if ($this->storage->copyRecursive($modelSource->pathAbsolute, $modelNew->pathAbsolute)) {
+        if ($this->storage->copyRecursive($modelSource, $modelNew)) {
             Log::info('copied "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
 
             if ($modelThumbOld->isExists) {
                 if ($this->storage->config('images.thumbnail.useLocalStorage')) {
                     app()->getStorage('local')->copyRecursive($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
                 } else {
-                    $this->storage->copyRecursive($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
+                    $this->storage->copyRecursive($modelThumbOld, $modelThumbNew);
                 }
             }
         } else {
@@ -379,14 +379,14 @@ class AwsS3Api implements ApiInterface
             $modelThumbOld->checkWritePermission();
         }
 
-        if ($this->storage->renameRecursive($modelSource->pathAbsolute, $modelNew->pathAbsolute)) {
+        if ($this->storage->renameRecursive($modelSource, $modelNew)) {
             Log::info('moved "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
 
             if ($modelThumbOld->isExists) {
                 if ($this->storage->config('images.thumbnail.useLocalStorage')) {
                     rename($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
                 } else {
-                    $this->storage->renameRecursive($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
+                    $this->storage->renameRecursive($modelThumbOld, $modelThumbNew);
                 }
             }
         } else {
@@ -709,7 +709,7 @@ class AwsS3Api implements ApiInterface
             $model = new ItemModel($modelTarget->pathRelative . $filename);
 
             if ($filename[strlen($filename) - 1] === "/" && $model->isUnrestricted()) {
-                $created = mkdir($model->pathAbsolute, 0700, true);
+                $created = $this->storage->createFolder($model, $modelTarget);
 
                 if ($created) {
                     // extract root-level folders from archive manually
