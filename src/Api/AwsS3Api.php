@@ -43,6 +43,10 @@ class AwsS3Api implements ApiInterface
             'upload' => [
                 'fileSizeLimit' => $this->storage->config('upload.fileSizeLimit'),
             ],
+            'viewer' => [
+                // force connector path to make S3 connector work out of the box
+                'absolutePath' => false,
+            ],
         ];
 
         return [
