@@ -6,24 +6,28 @@ interface ApiInterface
 {
     /**
      * Return server-side data to override on the client-side
+     *
      * @return array
      */
     public function actionInitiate();
 
     /**
      * Return file data
+     *
      * @return array
      */
     public function actionGetFile();
 
     /**
      * Open specified folder
+     *
      * @return array
      */
     public function actionGetFolder();
 
     /**
      * Open and edit file
+     *
      * @return array
      */
     public function actionEditFile();
@@ -62,6 +66,7 @@ interface ApiInterface
 
     /**
      * Create new folder
+     *
      * @return array
      */
     public function actionAddFolder();
@@ -73,6 +78,7 @@ interface ApiInterface
 
     /**
      * Returns image file
+     *
      * @param bool $thumbnail Whether to generate image thumbnail
      */
     public function actionGetImage($thumbnail);
@@ -84,12 +90,14 @@ interface ApiInterface
 
     /**
      * Retrieves storage summarize info
+     *
      * @return array
      */
     public function actionSummarize();
 
     /**
      * Extracts files and folders from archive
+     *
      * @return array
      */
     public function actionExtract();

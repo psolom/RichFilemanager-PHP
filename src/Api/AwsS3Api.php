@@ -4,6 +4,7 @@ namespace RFM\Api;
 
 use RFM\Facade\Input;
 use RFM\Facade\Log;
+use RFM\Repository\BaseStorage;
 use RFM\Repository\S3\ItemModel;
 
 class AwsS3Api implements ApiInterface
@@ -18,7 +19,7 @@ class AwsS3Api implements ApiInterface
      */
     public function __construct()
     {
-        $this->storage = app()->getStorage('s3');
+        $this->storage = app()->getStorage(BaseStorage::STORAGE_S3_NAME);
     }
 
     /**
@@ -179,7 +180,7 @@ class AwsS3Api implements ApiInterface
             app()->error('DIRECTORY_ALREADY_EXISTS', [$targetName]);
         }
 
-        if (!$this->storage->createFolder($model)) {
+        if (!$this->storage->createFolder($model, $modelTarget)) {
             app()->error('UNABLE_TO_CREATE_DIRECTORY', [$targetName]);
         }
 
@@ -239,11 +240,7 @@ class AwsS3Api implements ApiInterface
             Log::info('renamed "' . $modelOld->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
 
             if ($modelThumbOld->isExists) {
-                if ($this->storage->config('images.thumbnail.useLocalStorage')) {
-                    rename($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
-                } else {
-                    $this->storage->renameRecursive($modelThumbOld, $modelThumbNew);
-                }
+                $this->storage->forThumbnail()->renameRecursive($modelThumbOld, $modelThumbNew);
             }
         } else {
             if ($modelOld->isDir) {
@@ -309,21 +306,19 @@ class AwsS3Api implements ApiInterface
             $modelThumbOld->checkReadPermission();
         }
 
+        // copy file or folder
         if ($this->storage->copyRecursive($modelSource, $modelNew)) {
             Log::info('copied "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
 
+            // copy thumbnail file or thumbnails folder
             if ($modelThumbOld->isExists) {
-                if ($this->storage->config('images.thumbnail.useLocalStorage')) {
-                    app()->getStorage('local')->copyRecursive($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
-                } else {
-                    $this->storage->copyRecursive($modelThumbOld, $modelThumbNew);
-                }
+                $this->storage->forThumbnail()->copyRecursive($modelThumbOld, $modelThumbNew);
             }
         } else {
             if ($modelSource->isDir) {
-                app()->error('ERROR_COPYING_DIRECTORY', [$modelSource->pathRelative, $modelNew->pathRelative]);
+                app()->error('ERROR_COPYING_DIRECTORY', [$basename, $modelTarget->pathRelative]);
             } else {
-                app()->error('ERROR_COPYING_FILE', [$modelSource->pathRelative, $modelNew->pathRelative]);
+                app()->error('ERROR_COPYING_FILE', [$basename, $modelTarget->pathRelative]);
             }
         }
 
@@ -383,21 +378,24 @@ class AwsS3Api implements ApiInterface
             $modelThumbOld->checkWritePermission();
         }
 
+        // move file or folder
         if ($this->storage->renameRecursive($modelSource, $modelNew)) {
             Log::info('moved "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
 
+            // move thumbnail file or thumbnails folder if exists
             if ($modelThumbOld->isExists) {
-                if ($this->storage->config('images.thumbnail.useLocalStorage')) {
-                    rename($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
+                // do if target paths exists, otherwise remove old thumbnail(s)
+                if ($modelThumbNew->closest()->isExists) {
+                    $this->storage->forThumbnail()->renameRecursive($modelThumbOld, $modelThumbNew);
                 } else {
-                    $this->storage->renameRecursive($modelThumbOld, $modelThumbNew);
+                    $modelThumbOld->remove();
                 }
             }
         } else {
             if ($modelSource->isDir) {
-                app()->error('ERROR_MOVING_DIRECTORY', [$modelSource->pathRelative, $modelNew->pathRelative]);
+                app()->error('ERROR_MOVING_DIRECTORY', [$basename, $modelTarget->pathRelative]);
             } else {
-                app()->error('ERROR_MOVING_FILE', [$modelSource->pathRelative, $modelNew->pathRelative]);
+                app()->error('ERROR_MOVING_FILE', [$basename, $modelTarget->pathRelative]);
             }
         }
 
@@ -595,6 +593,7 @@ class AwsS3Api implements ApiInterface
         if ($model->remove()) {
             Log::info('deleted "' . $model->pathAbsolute . '"');
 
+            // delete thumbnail(s) if exist(s)
             if ($modelThumb->isExists) {
                 $modelThumb->remove();
             }

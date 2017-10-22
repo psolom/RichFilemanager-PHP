@@ -4,6 +4,7 @@ namespace RFM\Api;
 
 use RFM\Facade\Input;
 use RFM\Facade\Log;
+use RFM\Repository\BaseStorage;
 use RFM\Repository\Local\ItemModel;
 
 class LocalApi implements ApiInterface
@@ -18,7 +19,7 @@ class LocalApi implements ApiInterface
      */
     public function __construct()
     {
-        $this->storage = app()->getStorage('local');
+        $this->storage = app()->getStorage(BaseStorage::STORAGE_LOCAL_NAME);
     }
 
     /**
@@ -170,7 +171,7 @@ class LocalApi implements ApiInterface
             app()->error('DIRECTORY_ALREADY_EXISTS', [$targetName]);
         }
 
-        if (!mkdir($model->pathAbsolute, 0755)) {
+        if (!$this->storage->createFolder($model, $modelTarget)) {
             app()->error('UNABLE_TO_CREATE_DIRECTORY', [$targetName]);
         }
 
@@ -222,12 +223,12 @@ class LocalApi implements ApiInterface
         }
 
         // rename file or folder
-        if (rename($modelOld->pathAbsolute, $modelNew->pathAbsolute)) {
+        if ($this->storage->renameRecursive($modelOld, $modelNew)) {
             Log::info('renamed "' . $modelOld->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
 
             // rename thumbnail file or thumbnails folder if exists
             if ($modelThumbOld->isExists) {
-                rename($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
+                $this->storage->renameRecursive($modelThumbOld, $modelThumbNew);
             }
         } else {
             if ($modelOld->isDir) {
@@ -292,13 +293,13 @@ class LocalApi implements ApiInterface
         }
 
         // copy file or folder
-        if($this->storage->copyRecursive($modelSource->pathAbsolute, $modelNew->pathAbsolute)) {
+        if($this->storage->copyRecursive($modelSource, $modelNew)) {
             Log::info('copied "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
 
             // copy thumbnail file or thumbnails folder
             if ($modelThumbOld->isExists) {
                 if ($modelThumbNew->closest()->isExists) {
-                    $this->storage->copyRecursive($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
+                    $this->storage->copyRecursive($modelThumbOld, $modelThumbNew);
                 }
             }
         } else {
@@ -364,14 +365,14 @@ class LocalApi implements ApiInterface
         }
 
         // move file or folder
-        if (rename($modelSource->pathAbsolute, $modelNew->pathAbsolute)) {
+        if ($this->storage->renameRecursive($modelSource, $modelNew)) {
             Log::info('moved "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
 
             // move thumbnail file or thumbnails folder if exists
             if ($modelThumbOld->isExists) {
                 // do if target paths exists, otherwise remove old thumbnail(s)
                 if ($modelThumbNew->closest()->isExists) {
-                    rename($modelThumbOld->pathAbsolute, $modelThumbNew->pathAbsolute);
+                    $this->storage->renameRecursive($modelThumbOld, $modelThumbNew);
                 } else {
                     $modelThumbOld->remove();
                 }
@@ -576,21 +577,12 @@ class LocalApi implements ApiInterface
         $info = $model->getInfo();
         $modelThumb = $model->thumbnail();
 
-        if ($model->isDir) {
-            $this->storage->unlinkRecursive($model->pathAbsolute);
+        if ($model->remove()) {
             Log::info('deleted "' . $model->pathAbsolute . '"');
 
-            // delete thumbnail if exists
+            // delete thumbnail(s) if exist(s)
             if ($modelThumb->isExists) {
-                $this->storage->unlinkRecursive($modelThumb->pathAbsolute);
-            }
-        } else {
-            unlink($model->pathAbsolute);
-            Log::info('deleted "' . $model->pathAbsolute . '"');
-
-            // delete thumbnails if exists
-            if ($modelThumb->isExists) {
-                unlink($modelThumb->pathAbsolute);
+                $modelThumb->remove();
             }
         }
 
@@ -731,7 +723,7 @@ class LocalApi implements ApiInterface
             $model = new ItemModel($modelTarget->pathRelative . $filename);
 
             if ($filename[strlen($filename) - 1] === "/" && $model->isUnrestricted()) {
-                $created = mkdir($model->pathAbsolute, 0700, true);
+                $created = $this->storage->createFolder($model, $modelTarget);
 
                 if ($created) {
                     // extract root-level folders from archive manually
