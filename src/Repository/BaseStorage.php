@@ -14,6 +14,9 @@ namespace RFM\Repository;
 
 class BaseStorage
 {
+    const STORAGE_S3_NAME = 's3';
+    const STORAGE_LOCAL_NAME = 'local';
+
     /**
      * Storage name string.
      *
@@ -64,6 +67,20 @@ class BaseStorage
     public function formatDate($timestamp)
     {
         return date($this->config('options.dateFormat'), $timestamp);
+    }
+
+    /**
+     * Return storage instance that stores image thumbnails.
+     *
+     * @return \RFM\Repository\Local\Storage|\RFM\Repository\S3\Storage
+     */
+    public function forThumbnail()
+    {
+        $storageName = ($this->config('images.thumbnail.useLocalStorage') === true)
+            ? self::STORAGE_LOCAL_NAME
+            : self::STORAGE_S3_NAME;
+
+        return app()->getStorage($storageName);
     }
 
     /**
