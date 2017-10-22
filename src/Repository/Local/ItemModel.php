@@ -3,9 +3,12 @@
 namespace RFM\Repository\Local;
 
 use RFM\Facade\Log;
+use RFM\Factory\Factory;
+use RFM\Repository\BaseStorage;
 use RFM\Repository\BaseItemModel;
+use RFM\Repository\ItemInterface;
 
-class ItemModel extends BaseItemModel
+class ItemModel extends BaseItemModel implements ItemInterface
 {
     /**
      * @var Storage
@@ -73,7 +76,7 @@ class ItemModel extends BaseItemModel
      */
     public function __construct($path, $isThumbnail = false)
     {
-        $this->storage = app()->getStorage('local');
+        $this->setStorage(BaseStorage::STORAGE_LOCAL_NAME);
         $this->pathRelative = $path;
         $this->isThumbnail = $isThumbnail;
         $this->pathAbsolute = $this->getAbsolutePath();
@@ -160,7 +163,7 @@ class ItemModel extends BaseItemModel
     public function thumbnail()
     {
         if (is_null($this->thumbnail)) {
-            $this->thumbnail = new self($this->getThumbnailPath(), true);
+            $this->thumbnail = (new Factory())->createThumbnailModel($this);
         }
 
         return $this->thumbnail;
@@ -283,14 +286,12 @@ class ItemModel extends BaseItemModel
 
     /**
      * Remove current file or folder.
+     *
+     * @return bool
      */
     public function remove()
     {
-        if ($this->isDir) {
-            $this->storage->unlinkRecursive($this->pathAbsolute);
-        } else {
-            unlink($this->pathAbsolute);
-        }
+        $this->storage->unlinkRecursive($this);
     }
 
     /**
@@ -328,7 +329,7 @@ class ItemModel extends BaseItemModel
 
         // create folder if it does not exist
         if (!$modelThumb->closest()->isExists) {
-            mkdir($modelTarget->pathAbsolute, 0755, true);
+            $this->storage->createFolder($modelTarget);
         }
 
         $this->storage->initUploader($this->closest())
