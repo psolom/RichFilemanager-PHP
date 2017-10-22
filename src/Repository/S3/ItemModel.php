@@ -310,7 +310,7 @@ class ItemModel extends BaseItemModel implements ItemInterface
     {
         if ($this->isThumbnail) {
             return $this->storage->forThumbnail()->unlinkRecursive($this);
-            } else {
+        } else {
             return $this->storage->unlinkRecursive($this);
         }
     }
