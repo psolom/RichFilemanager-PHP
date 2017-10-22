@@ -57,4 +57,29 @@ class BaseItemModel
             'timestamp' => '',
         ]
     ];
+
+    /**
+     * @var StorageInterface
+     */
+    protected $storage;
+
+    /**
+     * Get storage instance associated with model item.
+     *
+     * @return StorageInterface
+     */
+    public function getStorage()
+    {
+        return $this->storage;
+    }
+
+    /**
+     * Associate storage with model item.
+     *
+     * @param StorageInterface $storageName
+     */
+    public function setStorage($storageName)
+    {
+        $this->storage = app()->getStorage($storageName);
+    }
 }
