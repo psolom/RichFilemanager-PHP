@@ -428,6 +428,6 @@ class Application extends Container {
      */
     public function version()
     {
-        return 'RichFilemanager PHP connector v1.0.7';
+        return 'RichFilemanager PHP connector v1.1.0';
 }
 }
