@@ -228,6 +228,10 @@ $config = [
             "maxHeight" => 64,
         ]
     ],
+    /**
+     * Default mode while creating new folder.
+     */
+    "mkdir_mode" => 0755,
 ];
 
 return $config;
