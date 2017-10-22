@@ -14,7 +14,9 @@ namespace RFM\Repository;
  */
 class BaseUploadHandler
 {
-
+    /**
+     * @var array
+     */
     protected $options;
 
     // PHP File Upload error message codes:
@@ -42,10 +44,10 @@ class BaseUploadHandler
 
     protected $image_objects = array();
 
-    function __construct($options = null, $initialize = true, $error_messages = null) {
+    public function __construct($options = null, $initialize = true, $error_messages = null) {
         $this->response = array();
         $this->options = array(
-            'script_url' => $this->get_full_url().'/'.basename($this->get_server_var('SCRIPT_NAME')),
+            'script_url' => $this->get_full_url().'/'.$this->basename($this->get_server_var('SCRIPT_NAME')),
             'upload_dir' => dirname($this->get_server_var('SCRIPT_FILENAME')).'/files/',
             'upload_url' => $this->get_full_url().'/files/',
             'input_stream' => 'php://input',
@@ -134,6 +136,7 @@ class BaseUploadHandler
             'identify_bin' => 'identify',
             'image_versions' => array(
                 // The empty image version key defines options for the original image:
+                // Keep in mind that these options are inherited by all other image versions!
                 '' => array(
                     // Automatically rotate images based on EXIF meta data:
                     'auto_orient' => true
@@ -233,6 +236,10 @@ class BaseUploadHandler
         }
         return $this->options['upload_dir'].$this->get_user_path()
             .$version_path.$file_name;
+    }
+
+    protected function mkdir($upload_dir) {
+        return mkdir($upload_dir, $this->options['mkdir_mode'], true);
     }
 
     protected function get_query_separator($url) {
@@ -349,7 +356,7 @@ class BaseUploadHandler
             $this->error_messages[$error] : $error;
     }
 
-    function get_config_bytes($val) {
+    public function get_config_bytes($val) {
         $val = trim($val);
         $last = strtolower($val[strlen($val)-1]);
         $val = (int) $val;
@@ -519,7 +526,7 @@ class BaseUploadHandler
         // Remove path information and dots around the filename, to prevent uploading
         // into different directories or replacing hidden system files.
         // Also remove control characters and spaces (\x00..\x20) around the filename:
-        $name = trim(basename(stripslashes($name)), ".\x00..\x20");
+        $name = trim($this->basename(stripslashes($name)), ".\x00..\x20");
         // Use a timestamp for empty filenames:
         if (!$name) {
             $name = str_replace('.', '-', microtime(true));
@@ -575,9 +582,7 @@ class BaseUploadHandler
         $file_path = $this->get_upload_path($file_name);
         if (!empty($version)) {
             $version_dir = $this->get_upload_path(null, $version);
-            if (!is_dir($version_dir)) {
-                mkdir($version_dir, $this->options['mkdir_mode'], true);
-            }
+            $this->mkdir($version_dir);
             $new_file_path = $version_dir.'/'.$file_name;
         } else {
             $new_file_path = $file_path;
@@ -1106,9 +1111,8 @@ class BaseUploadHandler
         if ($this->validate($uploaded_file, $file, $error, $index)) {
             $this->handle_form_data($file, $index);
             $upload_dir = $this->get_upload_path();
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, $this->options['mkdir_mode'], true);
-            }
+            $this->mkdir($upload_dir);
+
             $append_file = $content_range && is_file($file->path) &&
                 $file->size > $this->get_file_size($file->path);
             if ($uploaded_file && is_uploaded_file($uploaded_file)) {
@@ -1198,7 +1202,7 @@ class BaseUploadHandler
     }
 
     protected function get_version_param() {
-        return basename(stripslashes($this->get_query_param('version')));
+        return $this->basename(stripslashes($this->get_query_param('version')));
     }
 
     protected function get_singular_param_name() {
@@ -1207,7 +1211,7 @@ class BaseUploadHandler
 
     protected function get_file_name_param() {
         $name = $this->get_singular_param_name();
-        return basename(stripslashes($this->get_query_param($name)));
+        return $this->basename(stripslashes($this->get_query_param($name)));
     }
 
     protected function get_file_names_params() {
@@ -1216,7 +1220,7 @@ class BaseUploadHandler
             return null;
         }
         foreach ($params as $key => $value) {
-            $params[$key] = basename(stripslashes($value));
+            $params[$key] = $this->basename(stripslashes($value));
         }
         return $params;
     }
@@ -1474,4 +1478,8 @@ class BaseUploadHandler
         return $this->generate_response($response, $print_response);
     }
 
+    protected function basename($filepath, $suffix = null) {
+        $splited = preg_split('/\//', rtrim ($filepath, '/ '));
+        return substr(basename('X'.$splited[count($splited)-1], $suffix), 1);
+    }
 }
