@@ -14,7 +14,7 @@ interface ItemInterface
     /**
      * Associate storage with model item.
      *
-     * @param StorageInterface $storageName
+     * @param string $storageName
      */
     public function setStorage($storageName);
 
