@@ -7,18 +7,18 @@ use RFM\Repository\BaseUploadHandler;
 class UploadHandler extends BaseUploadHandler
 {
     /**
-     * Upload path (target folder) model.
-     *
-     * @var ItemModel
-     */
-    protected $model;
-
-    /**
      * Storage instance.
      *
      * @var Storage
      */
     protected $storage;
+
+    /**
+     * Upload path (target folder) model.
+     *
+     * @var ItemModel
+     */
+    protected $model;
 
     /**
      * UploadHandler constructor.
@@ -196,5 +196,18 @@ class UploadHandler extends BaseUploadHandler
             }
         }
         return true;
+    }
+
+    /**
+     * @param string $upload_path
+     * @return ItemModel
+     */
+    protected function mkdir($upload_path)
+    {
+        $model = new ItemModel($this->storage->getRelativePath($upload_path));
+        if ($model->isDir && !$model->isExists) {
+            $this->storage->createFolder($model, $this->model);
+        }
+        return $model;
     }
 }
