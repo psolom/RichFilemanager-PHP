@@ -100,7 +100,7 @@ class ItemModel extends BaseItemModel
 
         $model['id'] = $this->pathRelative;
         $model['attributes']['name'] = $pathInfo['basename'];
-        $model['attributes']['path'] = $this->getDynamicPath();
+        $model['attributes']['path'] = '/' . $this->getDynamicPath();
         $model['attributes']['readable'] = 1;
         $model['attributes']['writable'] = 1;
         $model['attributes']['timestamp'] = $filemtime;
