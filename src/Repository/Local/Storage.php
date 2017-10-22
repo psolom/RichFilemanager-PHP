@@ -57,7 +57,7 @@ class Storage extends BaseStorage implements StorageInterface
      */
 	public function __construct($config = [])
     {
-		$this->setName('local');
+		$this->setName(BaseStorage::STORAGE_LOCAL_NAME);
 		$this->setConfig($config);
         $this->setDefaults();
 	}
@@ -122,8 +122,8 @@ class Storage extends BaseStorage implements StorageInterface
 		Log::info('$this->dynamicRoot: "' . $this->dynamicRoot . '"');
 
 		if($makeDir && !file_exists($this->storageRoot)) {
-            Log::info('creating "' . $this->storageRoot . '" folder through mkdir()');
-			mkdir($this->storageRoot, 0755, true);
+            Log::info('creating "' . $this->storageRoot . '" root folder');
+			mkdir($this->storageRoot, $this->config('mkdir_mode'), true);
 		}
 	}
 
@@ -294,79 +294,111 @@ class Storage extends BaseStorage implements StorageInterface
 	}
 
     /**
+     * Create new folder.
+     *
+     * @param ItemModel $target
+     * @param ItemModel $prototype
+     * @param $options array
+     * @return bool
+     */
+    public function createFolder($target, $prototype = null, $options = [])
+    {
+        $defaults = [
+            'recursive' => true,
+            'mode' => $this->config('mkdir_mode'),
+        ];
+
+        $options = array_merge($defaults, $options);
+
+        return mkdir($target->pathAbsolute, $options['mode'], $options['recursive']);
+    }
+
+    /**
      * Copies a single file, symlink or a whole directory.
      * In case of directory it will be copied recursively.
      *
-     * @param string $source - absolute path
-     * @param string $target - absolute path
+     * @param ItemModel $source
+     * @param ItemModel $target
      * @return bool
      */
     public function copyRecursive($source, $target)
     {
+        $sourcePath = $source->pathAbsolute;
+        $targetPath = $target->pathAbsolute;
+
         // handle symlinks
-        if (is_link($source)) {
-            return symlink(readlink($source), $target);
+        if (is_link($sourcePath)) {
+            return symlink(readlink($sourcePath), $targetPath);
         }
 
         // copy a single file
-        if (is_file($source)) {
-            return copy($source, $target);
+        if (is_file($sourcePath)) {
+            return copy($sourcePath, $targetPath);
         }
 
         // make target directory
-        if (!is_dir($target)) {
-            mkdir($target, 0755, true);
+        if (!is_dir($targetPath)) {
+            $this->createFolder($target);
         }
 
-        $handle = opendir($source);
+        $handle = opendir($sourcePath);
         // loop through the directory
         while (($file = readdir($handle)) !== false) {
             if ($file === '.' || $file === '..') {
                 continue;
             }
-            $from = $this->cleanPath($source . DIRECTORY_SEPARATOR . $file);
-            $to = $this->cleanPath($target . DIRECTORY_SEPARATOR . $file);
 
-            if (is_file($from)) {
-                copy($from, $to);
-            } else {
-                // recursive copy
-                $this->copyRecursive($from, $to);
-            }
+            $itemSource = new ItemModel($source->pathRelative . $file);
+            $itemTarget = new ItemModel($target->pathRelative . $file);
+            $this->copyRecursive($itemSource, $itemTarget);
         }
         closedir($handle);
-
         return true;
+    }
+
+    /**
+     * Rename/move a single file or a whole directory.
+     * In case of directory it will be copied recursively.
+     *
+     * @param ItemModel $source
+     * @param ItemModel $target
+     * @return bool
+     */
+    public function renameRecursive($source, $target)
+    {
+        rename($source->pathAbsolute, $target->pathAbsolute);
     }
 
     /**
      * Delete folder recursive.
      *
-     * @param string $dir
-     * @param bool $deleteRootToo
+     * @param ItemModel $target
      * @return bool
      */
-    public function unlinkRecursive($dir, $deleteRootToo = true)
+    public function unlinkRecursive($target)
     {
-		if(!$dh = @opendir($dir)) {
+        $targetPath = $target->pathAbsolute;
+
+        // delete a single file
+        if (!is_dir($targetPath)) {
+            unlink($targetPath);
+        }
+
+        // filed to read folder
+		if(!$handle = @opendir($targetPath)) {
 			return false;
 		}
-		while (false !== ($obj = readdir($dh))) {
+
+		while (false !== ($obj = readdir($handle))) {
 			if($obj == '.' || $obj == '..') {
 				continue;
 			}
 
-			if (!@unlink($dir . '/' . $obj)) {
-				$this->unlinkRecursive($dir.'/'.$obj, true);
-			}
+            $itemTarget = new ItemModel($target->pathRelative . '/' . $obj);
+            $this->unlinkRecursive($itemTarget);
 		}
-		closedir($dh);
-
-		if ($deleteRootToo) {
-			@rmdir($dir);
-		}
-
-		return true;
+		closedir($handle);
+        return rmdir($targetPath);
 	}
 
 	/**
