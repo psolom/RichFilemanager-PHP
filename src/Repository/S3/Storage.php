@@ -55,7 +55,7 @@ class Storage extends BaseStorage implements StorageInterface
      */
     public function __construct($config = [])
     {
-        $this->setName('s3');
+        $this->setName(BaseStorage::STORAGE_S3_NAME);
         $this->setConfig($config);
         $this->setS3Client();
 
@@ -263,23 +263,24 @@ class Storage extends BaseStorage implements StorageInterface
     }
 
     /**
-     * Create folder respecting parent folder ACL policies.
+     * Create new folder respecting parent folder ACL policies.
      *
      * @param ItemModel $target
      * @param ItemModel $prototype
+     * @param $options array
      * @return bool
      */
-    public function createFolder($target, $prototype = null)
+    public function createFolder($target, $prototype = null, $options = [])
     {
         $options = [];
         if ($this->aclPolicy === StorageHelper::ACL_POLICY_INHERIT) {
             if (is_null($prototype)) {
                 $prototype = $target->closest();
             }
-            $prototype->getAclParams();
+            $options = array_merge($options, $prototype->getAclParams());
         }
 
-        return $this->s3->put($target->getDynamicPath(), '', $options);
+        return (bool) $this->s3->put($target->getDynamicPath(), '', $options);
     }
 
     /**
@@ -299,7 +300,6 @@ class Storage extends BaseStorage implements StorageInterface
         $copied = copy($source->pathAbsolute, $target->pathAbsolute, $context);
 
         if ($copied && $remove === true) {
-            $path = $source->getDynamicPath();
             $this->s3->delete($source->getDynamicPath());
         }
 
@@ -376,6 +376,24 @@ class Storage extends BaseStorage implements StorageInterface
         }
 
         return $flag;
+    }
+
+    /**
+     * Delete folder recursive.
+     *
+     * @param ItemModel $target
+     * @return bool
+     */
+    public function unlinkRecursive($target)
+    {
+        $key = $target->getDynamicPath();
+        if ($target->isDir) {
+            $this->s3->batchDelete($key);
+        } else {
+            $this->s3->delete($key);
+        }
+
+        return !$this->isObjectExists($key);
     }
 
 	/**

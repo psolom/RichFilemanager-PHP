@@ -3,9 +3,12 @@
 namespace RFM\Repository\S3;
 
 use RFM\Facade\Log;
+use RFM\Factory\Factory;
+use RFM\Repository\BaseStorage;
 use RFM\Repository\BaseItemModel;
+use RFM\Repository\ItemInterface;
 
-class ItemModel extends BaseItemModel
+class ItemModel extends BaseItemModel implements ItemInterface
 {
     /**
      * @var Storage
@@ -51,6 +54,13 @@ class ItemModel extends BaseItemModel
     private $isThumbnail;
 
     /**
+     * List of parameters based on ACL policies.
+     *
+     * @var array
+     */
+    private $aclParams;
+
+    /**
      * Model for parent folder of the current item.
      * Return NULL if there is no parent folder (user storage root folder).
      *
@@ -73,7 +83,7 @@ class ItemModel extends BaseItemModel
      */
     public function __construct($path, $isThumbnail = false)
     {
-        $this->storage = app()->getStorage('s3');
+        $this->setStorage(BaseStorage::STORAGE_S3_NAME);
         $this->pathRelative = $path;
         $this->isThumbnail = $isThumbnail;
         $this->pathAbsolute = $this->getAbsolutePath();
@@ -142,7 +152,7 @@ class ItemModel extends BaseItemModel
     public function thumbnail()
     {
         if (is_null($this->thumbnail)) {
-            $this->thumbnail = new self($this->getThumbnailPath(), true);
+            $this->thumbnail = (new Factory())->createThumbnailModel($this);
         }
 
         return $this->thumbnail;
@@ -185,8 +195,8 @@ class ItemModel extends BaseItemModel
      */
     public function getAbsolutePath()
     {
-        if ($this->isThumbnail && $this->storage->config('images.thumbnail.useLocalStorage')) {
-            $pathRoot = app()->getStorage('local')->getRoot();
+        if ($this->isThumbnail) {
+            $pathRoot = $this->storage->forThumbnail()->getRoot();
         } else {
             $pathRoot = $this->storage->getRoot();
         }
@@ -298,16 +308,10 @@ class ItemModel extends BaseItemModel
      */
     public function remove()
     {
-        if ($this->isDir) {
-            if ($this->isThumbnail && $this->storage->config('images.thumbnail.useLocalStorage')) {
-                return app()->getStorage('local')->unlinkRecursive($this->pathAbsolute);
+        if ($this->isThumbnail) {
+            return $this->storage->forThumbnail()->unlinkRecursive($this);
             } else {
-                $key = $this->getDynamicPath();
-                $this->storage->s3->batchDelete($key);
-                return !$this->storage->isObjectExists($key);
-            }
-        } else {
-            return unlink($this->pathAbsolute);
+            return $this->storage->unlinkRecursive($this);
         }
     }
 
@@ -346,7 +350,7 @@ class ItemModel extends BaseItemModel
 
         // create folder if it does not exist
         if (!$modelThumb->closest()->isExists) {
-            mkdir($modelTarget->pathAbsolute, 0755, true);
+            $this->storage->forThumbnail()->createFolder($modelTarget);
         }
 
         $this->storage->initUploader($this->closest())
@@ -610,6 +614,10 @@ class ItemModel extends BaseItemModel
      */
     public function getAclParams()
     {
+        if (!is_null($this->aclParams)) {
+            return $this->aclParams;
+        }
+
         $aclParams = [];
 
         // use default ACL policy by default
@@ -645,6 +653,7 @@ class ItemModel extends BaseItemModel
             }
         }
 
+        $this->aclParams = $aclParams;
         return $aclParams;
     }
 
