@@ -49,4 +49,12 @@ interface StorageInterface
      * @return string
      */
     public function getDynamicRoot();
+
+    /**
+     * Return path without storage root path.
+     *
+     * @param string $path
+     * @return string
+     */
+    public function getRelativePath($path);
 }
