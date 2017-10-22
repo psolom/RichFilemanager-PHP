@@ -7,18 +7,18 @@ use RFM\Repository\BaseUploadHandler;
 class UploadHandler extends BaseUploadHandler
 {
     /**
-     * Upload path (target folder) model.
-     *
-     * @var ItemModel
-     */
-    protected $model;
-
-    /**
      * Storage instance.
      *
      * @var Storage
      */
     protected $storage;
+
+    /**
+     * Upload path (target folder) model.
+     *
+     * @var ItemModel
+     */
+    protected $model;
 
     /**
      * UploadHandler constructor.
@@ -199,47 +199,30 @@ class UploadHandler extends BaseUploadHandler
     }
 
     /**
-     * Retrieves file size.
-     *
-     * @param string $file_path
-     * @param bool $clear_stat_cache
-     * @return int|string
+     * @param string $upload_path
+     * @return ItemModel
      */
-    public function get_file_size($file_path, $clear_stat_cache = false)
+    protected function mkdir($upload_path)
     {
-        if(substr($file_path, 0, 5) === 's3://') {
-            // for s3 object path
-            // you could use this approach only with AWS SDK version >= 3.18.0
-            // @see https://github.com/aws/aws-sdk-php/issues/963 for details
-            return strval(filesize($file_path));
+        $isThumbnail = ($upload_path === rtrim($this->model->thumbnail()->pathAbsolute, '/'));
+        if ($isThumbnail) {
+            $model = $this->model->thumbnail();
         } else {
-            // for local path (thumbnails e.g.)
-            return parent::get_file_size($file_path, $clear_stat_cache);
+            $model = new ItemModel($this->storage->getRelativePath($upload_path));
         }
-    }
 
-    /**
-     * Overridden to read file exif data.
-     * Exif functions don't support stream wrappers.
-     *
-     * @inheritdoc
-     */
-    protected function get_file_exif_data($file) {
-        $exif = [];
-        $contents = file_get_contents($file->path);
-        // create data:// wrapper is the only way to apply exif_imagetype() to string
-        $data = 'data://image/jpeg;base64,' . base64_encode($contents);
-        $exif['type'] = @exif_imagetype($data);
-        $exif['data'] = @exif_read_data($data);
-        unset($contents);
-
-        return $exif;
+        if ($model->isDir && !$model->isExists) {
+            if ($isThumbnail) {
+                $this->storage->forThumbnail()->createFolder($model, $this->model);
+            } else {
+                $this->storage->createFolder($model, $this->model);
+            }
+        }
+        return $model;
     }
 
     /**
      * Overridden to add stream context while uploading files with actual ContentType.
-     *
-     * @inheritdoc
      */
     protected function handle_file_upload($uploaded_file, $name, $size, $type, $error,
                                           $index = null, $content_range = null) {
@@ -253,13 +236,9 @@ class UploadHandler extends BaseUploadHandler
         if ($this->validate($uploaded_file, $file, $error, $index)) {
             $this->handle_form_data($file, $index);
             $upload_dir = $this->get_upload_path();
-            // create model of target folder to fetch ACL policies
-            $modelTarget = new ItemModel($this->storage->getRelativePath($upload_dir));
+            $model = $this->mkdir($upload_dir);
+            $acl_params = $model->getAclParams();
 
-            if (!$modelTarget->isExists) {
-                $this->storage->createFolder($modelTarget, $this->model);
-            }
-            $acl_params = $modelTarget->getAclParams();
             $append_file = $content_range && is_file($file->path) &&
                 $file->size > $this->get_file_size($file->path);
             if ($uploaded_file && is_uploaded_file($uploaded_file)) {
@@ -312,5 +291,44 @@ class UploadHandler extends BaseUploadHandler
         unset($file->path);
 
         return $file;
+    }
+
+    /**
+     * Retrieves file size.
+     *
+     * @param string $file_path
+     * @param bool $clear_stat_cache
+     * @return int|string
+     */
+    public function get_file_size($file_path, $clear_stat_cache = false)
+    {
+        if(substr($file_path, 0, 5) === 's3://') {
+            // for s3 object path
+            // you could use this approach only with AWS SDK version >= 3.18.0
+            // @see https://github.com/aws/aws-sdk-php/issues/963 for details
+            return strval(filesize($file_path));
+        } else {
+            // for local path (thumbnails e.g.)
+            return parent::get_file_size($file_path, $clear_stat_cache);
+        }
+    }
+
+    /**
+     * Overridden to read file exif data.
+     * Exif functions don't support stream wrappers.
+     *
+     * @inheritdoc
+     */
+    protected function get_file_exif_data($file)
+    {
+        $exif = [];
+        $contents = file_get_contents($file->path);
+        // create data:// wrapper is the only way to apply exif_imagetype() to string
+        $data = 'data://image/jpeg;base64,' . base64_encode($contents);
+        $exif['type'] = @exif_imagetype($data);
+        $exif['data'] = @exif_read_data($data);
+        unset($contents);
+
+        return $exif;
     }
 }
