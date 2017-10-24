@@ -42,11 +42,21 @@ class Storage extends BaseStorage implements StorageInterface
     public $s3 = null;
 
     /**
+     * The Server-side encryption algorithm used when storing objects in S3.
+     * Valid values: null|AES256|aws:kms
+     * http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html
+     * http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
+     *
+     * @var null|string
+     */
+    public $encryption = null;
+
+    /**
      * ACL policy accorging to the configuration file.
      *
-     * @var string
+     * @var array|null
      */
-    public $aclPolicy = null;
+    public $aclPolicy = [];
 
     /**
      * Storage constructor.
@@ -72,6 +82,12 @@ class Storage extends BaseStorage implements StorageInterface
             throw new \Exception("S3 storage credentials isn't set");
         }
 
+        $this->aclPolicy = $this->config('aclPolicy', []);
+        $this->encryption = $this->config('encryption', null);
+
+        $options = $this->config('credentials.options', []);
+        $options['ServerSideEncryption'] = $this->encryption;
+
         $storage = new StorageHelper;
         $storage->region = $this->config('credentials.region');
         $storage->bucket = $this->config('credentials.bucket');
@@ -80,11 +96,10 @@ class Storage extends BaseStorage implements StorageInterface
         $storage->defaultAcl = $this->config('credentials.defaultAcl');
         $storage->cdnHostname = $this->config('credentials.cdnHostname');
         $storage->debug = $this->config('credentials.debug', false);
-        $storage->options = $this->config('credentials.options', []);
+        $storage->options = $options;
         $storage->init();
 
         $this->s3 = $storage;
-        $this->aclPolicy = $this->config('aclPolicy', []);
     }
 
     /**
@@ -294,7 +309,9 @@ class Storage extends BaseStorage implements StorageInterface
     public function copyItem($source, $target, $remove = false)
     {
         $context = stream_context_create([
-            's3' => $source->getAclParams(),
+            's3' => array_merge($source->getAclParams(), [
+                'ServerSideEncryption' => $this->encryption,
+            ]),
         ]);
 
         $copied = copy($source->pathAbsolute, $target->pathAbsolute, $context);

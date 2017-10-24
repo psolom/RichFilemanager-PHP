@@ -57,6 +57,15 @@ $config['allowBulk'] = true;
  */
 $config['aclPolicy'] = \RFM\Repository\S3\StorageHelper::ACL_POLICY_DEFAULT;
 
+/**
+ * The Server-side encryption algorithm used when storing objects in S3.
+ * Valid values: null|AES256|aws:kms
+ * http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html
+ * http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
+ */
+$config['encryption'] = null;
+
+
 
 /*******************************************************************************
  * S3 SETTINGS
