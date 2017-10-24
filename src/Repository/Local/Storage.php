@@ -366,7 +366,7 @@ class Storage extends BaseStorage implements StorageInterface
      */
     public function renameRecursive($source, $target)
     {
-        rename($source->pathAbsolute, $target->pathAbsolute);
+        return rename($source->pathAbsolute, $target->pathAbsolute);
     }
 
     /**
