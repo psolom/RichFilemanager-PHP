@@ -124,7 +124,7 @@ class StorageHelper
         $options = $this->applyAclPolicy($options);
         $args = $this->prepareArgs($options, [
             'Bucket' => $this->bucket,
-            'Key' => $key,
+            'Key' => $this->trimKey($key),
             'Body' => $data,
         ]);
 
@@ -138,7 +138,7 @@ class StorageHelper
     {
         $args = $this->prepareArgs([
             'Bucket' => $this->bucket,
-            'Key' => $key,
+            'Key' => $this->trimKey($key),
             'SaveAs' => $saveAs,
         ]);
 
@@ -150,7 +150,7 @@ class StorageHelper
      */
     public function exist($key, array $options = [])
     {
-        return $this->getClient()->doesObjectExist($this->bucket, $key, $options);
+        return $this->getClient()->doesObjectExist($this->bucket, $this->trimKey($key), $options);
     }
 
     /**
@@ -160,18 +160,7 @@ class StorageHelper
     {
         return $this->execute('getObjectAcl', [
             'Bucket' => $this->bucket,
-            'Key' => $key,
-        ]);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function delete($key)
-    {
-        return $this->execute('DeleteObject', [
-            'Bucket' => $this->bucket,
-            'Key' => $key,
+            'Key' => $this->trimKey($key),
         ]);
     }
 
@@ -180,7 +169,7 @@ class StorageHelper
      */
     public function getUrl($key)
     {
-        return $this->getClient()->getObjectUrl($this->bucket, $key);
+        return $this->getClient()->getObjectUrl($this->bucket, $this->trimKey($key));
     }
 
     /**
@@ -188,7 +177,10 @@ class StorageHelper
      */
     public function getPresignedUrl($key, $expires)
     {
-        $command = $this->getClient()->getCommand('GetObject', ['Bucket' => $this->bucket, 'Key' => $key]);
+        $command = $this->getClient()->getCommand('GetObject', [
+            'Bucket' => $this->bucket,
+            'Key' => $this->trimKey($key),
+        ]);
         $request = $this->getClient()->createPresignedRequest($command, $expires);
 
         return (string)$request->getUri();
@@ -199,7 +191,7 @@ class StorageHelper
      */
     public function getCdnUrl($key)
     {
-        return $this->cdnHostname . '/' . $key;
+        return $this->cdnHostname . '/' . $this->trimKey($key);
     }
 
     /**
@@ -222,7 +214,7 @@ class StorageHelper
     {
         return $this->getClient()->upload(
             $this->bucket,
-            $key,
+            $this->trimKey($key),
             $this->toStream($source),
             !empty($acl) ? $acl : $this->defaultAcl,
             $options
@@ -247,7 +239,7 @@ class StorageHelper
 
         return $this->getClient()->uploadAsync(
             $this->bucket,
-            $key,
+            $this->trimKey($key),
             $this->toStream($source),
             !empty($acl) ? $acl : $this->defaultAcl,
             $args
@@ -262,6 +254,7 @@ class StorageHelper
     protected function execute($name, array $args)
     {
         $command = $this->getClient()->getCommand($name, $args);
+
         return $this->getClient()->execute($command);
     }
 
@@ -297,25 +290,23 @@ class StorageHelper
     }
 
     /**
-     * @param $key
-     * @param bool $handle - returns FALSE if object doesn't exists or access is denied
+     * @param string $key
+     * @param bool $handle - return boolean value on `true`, otherwise throw an exception
      * @return \Aws\ResultInterface|bool
      */
     public function head($key, $handle = false)
     {
         $args = [
             'Bucket' => $this->bucket,
-            'Key' => $key,
+            'Key' => $this->trimKey($key),
         ];
 
         if(!$handle) {
             return $this->execute('HeadObject', $args);
         } else {
-            $command = $this->getClient()->getCommand('HeadObject', $args);
-
             /* @see \Aws\S3\S3Client::checkExistenceWithCommand(), moved here to avoid extra request */
             try {
-                return $this->getClient()->execute($command);
+                return $this->execute('HeadObject', $args);
             } catch (\Aws\S3\Exception\S3Exception $e) {
                 if ($e->getStatusCode() >= 500) {
                     throw $e;
@@ -336,7 +327,7 @@ class StorageHelper
     {
         return $this->getClient()->copy(
             $this->bucket,
-            $key,
+            $this->trimKey($key),
             $this->bucket,
             $destination,
             !empty($acl) ? $acl : $this->defaultAcl,
@@ -345,17 +336,39 @@ class StorageHelper
     }
 
     /**
-     * @param $key
+     * @param string $key
+     */
+    public function delete($key)
+    {
+        return $this->execute('DeleteObject', [
+            'Bucket' => $this->bucket,
+            'Key' => $this->trimKey($key),
+        ]);
+    }
+
+    /**
+     * @param string $key
      */
     public function batchDelete($key)
     {
-        $this->getClient()->deleteMatchingObjects($this->bucket, $key);
+        $this->getClient()->deleteMatchingObjects($this->bucket, $this->trimKey($key));
+    }
+
+    /**
+     * Trim leading slash from key.
+     *
+     * @param string $key
+     * @return string
+     */
+    public function trimKey($key)
+    {
+        return ltrim($key, '/');
     }
 
     /**
      * Apply ACL policies based on given options.
      *
-     * @param $options
+     * @param array $options
      * @return mixed
      */
     protected function applyAclPolicy($options)
@@ -372,33 +385,5 @@ class StorageHelper
         }
 
         return $options;
-    }
-
-    /**
-     * @param $key
-     * @param $destination
-     * @return bool
-     */
-    public function rename($key, $destination)
-    {
-        $bucket = $this->bucket;
-        $isDir = is_dir("s3://{$bucket}/{$key}");
-
-        if($isDir) {
-            $result = $this->getList($key);
-
-            if(!isset($result['Contents'])) {
-                return false;
-            }
-
-            foreach ($result['Contents'] as $object) {
-                $newPath = str_replace($key, $destination, $object['Key']);
-                rename("s3://{$bucket}/{$object['Key']}", "s3://{$bucket}/{$newPath}");
-            }
-        } else {
-            rename("s3://{$bucket}/{$key}", "s3://{$bucket}/{$destination}");
-        }
-
-        return true;
     }
 }

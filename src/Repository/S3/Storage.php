@@ -32,7 +32,7 @@ class Storage extends BaseStorage implements StorageInterface
      *
      * @var string
      */
-    protected $dynamicRoot = 'userfiles';
+    protected $dynamicRoot;
 
     /**
      * S3 client wrapper class.
@@ -69,8 +69,8 @@ class Storage extends BaseStorage implements StorageInterface
         $this->setConfig($config);
         $this->setS3Client();
 
-        $this->dynamicRoot = $this->cleanPath($this->dynamicRoot . '/');
-        $this->storageRoot = $this->getS3WrapperPath($this->dynamicRoot);
+        $this->setDynamicRoot('userfiles');
+        $this->storageRoot = $this->getS3WrapperPath($this->getDynamicRoot());
     }
 
     /**
@@ -107,12 +107,12 @@ class Storage extends BaseStorage implements StorageInterface
      */
     public function setRoot($path, $makeDir = false)
     {
-        $this->dynamicRoot = $this->cleanPath($path . '/');
-        $this->storageRoot = $this->getS3WrapperPath($this->dynamicRoot);
+        $this->setDynamicRoot($path);
+        $this->storageRoot = $this->getS3WrapperPath($this->getDynamicRoot());
 
         if($makeDir === true && !is_dir($this->storageRoot)) {
             Log::info('creating "' . $this->storageRoot . '" root folder');
-            $this->s3->put($this->dynamicRoot . '/');
+            $this->s3->put($this->getDynamicRoot());
         }
     }
 
@@ -130,6 +130,14 @@ class Storage extends BaseStorage implements StorageInterface
     public function getDynamicRoot()
     {
         return $this->dynamicRoot;
+    }
+
+    /**
+     * @param string $path
+     */
+    public function setDynamicRoot($path)
+    {
+        $this->dynamicRoot = $this->cleanPath('/' . $path . '/');
     }
 
     /**
