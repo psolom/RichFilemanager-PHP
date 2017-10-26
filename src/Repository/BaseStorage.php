@@ -2,6 +2,9 @@
 
 namespace RFM\Repository;
 
+use function RFM\app;
+use function RFM\config;
+
 /**
  *    BaseStorage PHP class
  *
@@ -72,7 +75,7 @@ class BaseStorage
     /**
      * Return storage instance that stores image thumbnails.
      *
-     * @return \RFM\Repository\Local\Storage|\RFM\Repository\S3\Storage
+     * @return \RFM\Repository\StorageInterface|\RFM\Repository\Local\Storage|\RFM\Repository\S3\Storage
      */
     public function forThumbnail()
     {

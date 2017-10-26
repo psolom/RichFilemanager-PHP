@@ -6,6 +6,8 @@ use RFM\Facade\Input;
 use RFM\Facade\Log;
 use RFM\Repository\BaseStorage;
 use RFM\Repository\S3\ItemModel;
+use function RFM\app;
+use function RFM\request;
 
 class AwsS3Api implements ApiInterface
 {

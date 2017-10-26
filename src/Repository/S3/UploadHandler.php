@@ -3,6 +3,7 @@
 namespace RFM\Repository\S3;
 
 use RFM\Repository\BaseUploadHandler;
+use function RFM\mime_type_by_extension;
 
 class UploadHandler extends BaseUploadHandler
 {

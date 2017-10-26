@@ -5,6 +5,7 @@ namespace RFM\Repository\Local;
 use RFM\Facade\Log;
 use RFM\Repository\BaseStorage;
 use RFM\Repository\StorageInterface;
+use function RFM\app;
 
 /**
  *	Local storage class.

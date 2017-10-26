@@ -2,6 +2,8 @@
 
 namespace RFM\Repository;
 
+use function RFM\app;
+
 /**
  *    BaseItemModel PHP class
  *

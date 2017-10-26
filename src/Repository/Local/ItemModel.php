@@ -7,6 +7,7 @@ use RFM\Factory\Factory;
 use RFM\Repository\BaseStorage;
 use RFM\Repository\BaseItemModel;
 use RFM\Repository\ItemInterface;
+use function RFM\app;
 
 class ItemModel extends BaseItemModel implements ItemInterface
 {

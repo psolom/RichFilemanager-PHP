@@ -4,7 +4,6 @@ namespace RFM\Factory;
 
 use RFM\Repository\Local\ItemModel as LocalItemModel;
 use RFM\Repository\S3\ItemModel as S3ItemModel;
-use RFM\Repository\StorageInterface;
 
 class Factory
 {

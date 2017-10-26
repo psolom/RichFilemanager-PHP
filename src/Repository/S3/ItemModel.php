@@ -7,6 +7,8 @@ use RFM\Factory\Factory;
 use RFM\Repository\BaseStorage;
 use RFM\Repository\BaseItemModel;
 use RFM\Repository\ItemInterface;
+use function RFM\app;
+use function RFM\mime_type_by_extension;
 
 class ItemModel extends BaseItemModel implements ItemInterface
 {
@@ -638,7 +640,6 @@ class ItemModel extends BaseItemModel implements ItemInterface
                             $properties[] = strtolower($key) . '=' . $value;
                         }
 
-                        $permission = 'Grant' . implode('', array_map('ucfirst', explode('_', $grant['Permission'])));
                         $normalizeFunc = function($value) {
                             if ($value !== 'ACP') {
                                 $value = ucfirst(strtolower($value));
