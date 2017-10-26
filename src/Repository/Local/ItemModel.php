@@ -292,7 +292,7 @@ class ItemModel extends BaseItemModel implements ItemInterface
      */
     public function remove()
     {
-        $this->storage->unlinkRecursive($this);
+        return $this->storage->unlinkRecursive($this);
     }
 
     /**
