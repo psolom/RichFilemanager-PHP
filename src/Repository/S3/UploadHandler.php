@@ -254,7 +254,6 @@ class UploadHandler extends BaseUploadHandler
                             // chunk that appended overrides object's ContentType to the S3 default "binary/octet-stream".
                             // The only solutions is to define mime type based on file extension
                             'ContentType' => mime_type_by_extension($name),
-                            'ServerSideEncryption' => $this->storage->encryption,
                         ]),
                     ])
                 );
@@ -268,7 +267,6 @@ class UploadHandler extends BaseUploadHandler
                         's3' => array_merge($acl_params, [
                             // define mime type of stream content
                             'ContentType' => mime_content_type($uploaded_file),
-                            'ServerSideEncryption' => $this->storage->encryption,
                         ]),
                     ])
                 );

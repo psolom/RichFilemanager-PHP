@@ -58,6 +58,16 @@ class StorageHelper
     public $endpoint;
 
     /**
+     * The Server-side encryption algorithm used when storing objects in S3.
+     * Valid values: null|AES256|aws:kms
+     * http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html
+     * http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
+     *
+     * @var null|string
+     */
+    public $encryption = null;
+
+    /**
      * @var bool|array
      */
     public $debug = false;
@@ -106,6 +116,13 @@ class StorageHelper
         // to use PHP functions like copy(), rename() etc.
         // https://docs.aws.amazon.com/aws-sdk-php/v3/guide/service/s3-stream-wrapper.html
         $this->client->registerStreamWrapper();
+
+        // set default params for S3 StreamWrapper
+        stream_context_set_default([
+            's3' => [
+                'ServerSideEncryption' => $this->encryption,
+            ]
+        ]);
     }
 
     /**
@@ -126,6 +143,7 @@ class StorageHelper
             'Bucket' => $this->bucket,
             'Key' => $this->trimKey($key),
             'Body' => $data,
+            'ServerSideEncryption' => $this->encryption,
         ]);
 
         return $this->execute('PutObject', $args);
@@ -140,6 +158,7 @@ class StorageHelper
             'Bucket' => $this->bucket,
             'Key' => $this->trimKey($key),
             'SaveAs' => $saveAs,
+            'ServerSideEncryption' => $this->encryption,
         ]);
 
         return $this->execute('GetObject', $args);
@@ -202,6 +221,7 @@ class StorageHelper
         $args = $this->prepareArgs($options, [
             'Bucket' => $this->bucket,
             'Prefix' => $prefix,
+            'ServerSideEncryption' => $this->encryption,
         ]);
 
         return $this->execute('ListObjects', $args);

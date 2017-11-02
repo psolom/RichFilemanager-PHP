@@ -42,16 +42,6 @@ class Storage extends BaseStorage implements StorageInterface
     public $s3 = null;
 
     /**
-     * The Server-side encryption algorithm used when storing objects in S3.
-     * Valid values: null|AES256|aws:kms
-     * http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html
-     * http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
-     *
-     * @var null|string
-     */
-    public $encryption = null;
-
-    /**
      * ACL policy accorging to the configuration file.
      *
      * @var array|null
@@ -83,10 +73,6 @@ class Storage extends BaseStorage implements StorageInterface
         }
 
         $this->aclPolicy = $this->config('aclPolicy', []);
-        $this->encryption = $this->config('encryption', null);
-
-        $options = $this->config('credentials.options', []);
-        $options['ServerSideEncryption'] = $this->encryption;
 
         $storage = new StorageHelper;
         $storage->region = $this->config('credentials.region');
@@ -95,8 +81,9 @@ class Storage extends BaseStorage implements StorageInterface
         $storage->credentials = $this->config('credentials.credentials');
         $storage->defaultAcl = $this->config('credentials.defaultAcl');
         $storage->cdnHostname = $this->config('credentials.cdnHostname');
+        $storage->encryption = $this->config('encryption', null);
         $storage->debug = $this->config('credentials.debug', false);
-        $storage->options = $options;
+        $storage->options = $this->config('credentials.options', []);
         $storage->init();
 
         $this->s3 = $storage;
