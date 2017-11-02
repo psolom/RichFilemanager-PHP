@@ -2,6 +2,8 @@
 
 namespace RFM\Facade;
 
+use function RFM\logger;
+
 class Log
 {
     /**

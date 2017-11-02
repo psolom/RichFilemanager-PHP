@@ -7,6 +7,9 @@ use Illuminate\Container\Container;
 use Symfony\Component\HttpFoundation\Request;
 use RFM\Repository\StorageInterface;
 use RFM\API\ApiInterface;
+use function RFM\config;
+use function RFM\logger;
+use function RFM\request;
 
 // path to "application" folder
 defined('FM_APP_PATH') or define('FM_APP_PATH', dirname(__FILE__));
@@ -429,5 +432,5 @@ class Application extends Container {
     public function version()
     {
         return 'RichFilemanager PHP connector v1.1.2';
-}
+    }
 }
