@@ -19,8 +19,8 @@
     }
   ],
   "require": {
-    "php": ">= 5.4.0",
-    "symfony/http-foundation": "2.8.*",
+    "php": ">= 5.5.9",
+    "symfony/http-foundation": "~3.0",
     "illuminate/config": "5.2.*",
     "illuminate/container": "5.2.*"
   },
