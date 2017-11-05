@@ -42,6 +42,10 @@ class LocalApi implements ApiInterface
             'upload' => [
                 'fileSizeLimit' => $this->storage->config('upload.fileSizeLimit'),
             ],
+            'viewer' => [
+                'absolutePath' => $this->storage->config('viewer.absolutePath'),
+                'previewUrl' => $this->storage->config('viewer.previewUrl'),
+            ],
         ];
 
         return [

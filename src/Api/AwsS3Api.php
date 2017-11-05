@@ -32,7 +32,7 @@ class AwsS3Api implements ApiInterface
         // config options that affect the client-side
         $shared_config = [
             'options' => [
-                // achiving of folders doesn't supported for S3 storage
+                // archiving of folders doesn't supported for S3 storage
                 'allowFolderDownload' => false,
             ],
             'security' => [
@@ -45,6 +45,10 @@ class AwsS3Api implements ApiInterface
             ],
             'upload' => [
                 'fileSizeLimit' => $this->storage->config('upload.fileSizeLimit'),
+            ],
+            'viewer' => [
+                'absolutePath' => $this->storage->config('viewer.absolutePath'),
+                'previewUrl' => $this->storage->config('viewer.previewUrl'),
             ],
         ];
 
