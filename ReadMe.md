@@ -3,7 +3,7 @@ PHP connector for Rich Filemanager
 
 This package is the part of [RichFilemanager](https://github.com/servocoder/RichFilemanager) project.
 
-Requires PHP >= 5.4.0
+Requires PHP >= 5.6.4
 
 
 Introduction
