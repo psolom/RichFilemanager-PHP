@@ -61,7 +61,7 @@ class UploadHandler extends BaseUploadHandler
         // image thumbnail settings
         if($this->storage->config('images.thumbnail.enabled') === true) {
             $this->options['image_versions']['thumbnail'] = array(
-                'upload_dir' => rtrim($this->model->thumbnail()->pathAbsolute, '/'),
+                'upload_dir' => $this->model->thumbnail()->pathAbsolute,
                 'crop' => $this->storage->config('images.thumbnail.crop'),
                 'max_width' => $this->storage->config('images.thumbnail.maxWidth'),
                 'max_height' => $this->storage->config('images.thumbnail.maxHeight'),
@@ -205,7 +205,7 @@ class UploadHandler extends BaseUploadHandler
      */
     protected function mkdir($upload_path)
     {
-        $isThumbnail = ($upload_path === rtrim($this->model->thumbnail()->pathAbsolute, '/'));
+        $isThumbnail = ($upload_path === $this->model->thumbnail()->pathAbsolute);
         if ($isThumbnail) {
             $model = $this->model->thumbnail();
         } else {
