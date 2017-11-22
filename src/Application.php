@@ -5,8 +5,10 @@ namespace RFM;
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use RFM\Repository\StorageInterface;
 use RFM\API\ApiInterface;
+use RFM\Event\Api as ApiEvent;
 use function RFM\config;
 use function RFM\logger;
 use function RFM\request;
@@ -62,6 +64,7 @@ class Application extends Container {
         $this->registerConfigBindings();
         $this->registerLoggerBindings();
         $this->registerRequestBindings();
+        $this->registerDispatcherBindings();
 
         if (function_exists('fm_authenticate')) {
             $authenticated = fm_authenticate();
@@ -148,6 +151,36 @@ class Application extends Container {
         $this->singleton('config', function () {
             return new Repository();
         });
+    }
+
+    /**
+     * Register container bindings for the application.
+     *
+     * @return void
+     */
+    protected function registerDispatcherBindings()
+    {
+        $this->singleton('dispatcher', function () {
+            return new EventDispatcher();
+        });
+    }
+
+    /**
+     * Register events listeners.
+     *
+     * @return void
+     */
+    public function registerEventsListeners()
+    {
+        dispatcher()->addListener(ApiEvent\AfterFolderReadEvent::NAME, 'fm_event_api_after_folder_read');
+        dispatcher()->addListener(ApiEvent\AfterFolderCreateEvent::NAME, 'fm_event_api_after_folder_create');
+        dispatcher()->addListener(ApiEvent\AfterFileUploadEvent::NAME, 'fm_event_api_after_file_upload');
+        dispatcher()->addListener(ApiEvent\AfterFileExtractEvent::NAME, 'fm_event_api_after_file_extract');
+        dispatcher()->addListener(ApiEvent\AfterItemRenameEvent::NAME, 'fm_event_api_after_item_rename');
+        dispatcher()->addListener(ApiEvent\AfterItemCopyEvent::NAME, 'fm_event_api_after_item_copy');
+        dispatcher()->addListener(ApiEvent\AfterItemMoveEvent::NAME, 'fm_event_api_after_item_move');
+        dispatcher()->addListener(ApiEvent\AfterItemDeleteEvent::NAME, 'fm_event_api_after_item_delete');
+        dispatcher()->addListener(ApiEvent\AfterItemDownloadEvent::NAME, 'fm_event_api_after_item_download');
     }
 
     /**
