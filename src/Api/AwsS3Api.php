@@ -771,7 +771,7 @@ class AwsS3Api implements ApiInterface
             $filename = $zip->getNameIndex($i);
             $model = new ItemModel($modelTarget->getRelativePath() . $filename);
 
-            if ($filename[strlen($filename) - 1] === "/" && $model->isUnrestricted()) {
+            if ($model->isDirectory() && $model->isUnrestricted()) {
                 $created = $this->storage->createFolder($model, $modelTarget);
 
                 if ($created) {
@@ -790,7 +790,7 @@ class AwsS3Api implements ApiInterface
             $filename = $zip->getNameIndex($i);
             $model = new ItemModel($modelTarget->getRelativePath() . $filename);
 
-            if ($filename[strlen($filename) - 1] !== "/" && $model->isUnrestricted()) {
+            if ($model->isDirectory() && $model->isUnrestricted()) {
                 $copied = copy('zip://' . $pathTemp . '#' . $filename, $model->getAbsolutePath());
 
                 if ($copied) {
