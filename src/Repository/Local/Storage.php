@@ -311,7 +311,7 @@ class Storage extends BaseStorage implements StorageInterface
 
         $options = array_merge($defaults, $options);
 
-        return mkdir($target->pathAbsolute, $options['mode'], $options['recursive']);
+        return mkdir($target->getAbsolutePath(), $options['mode'], $options['recursive']);
     }
 
     /**
@@ -324,8 +324,8 @@ class Storage extends BaseStorage implements StorageInterface
      */
     public function copyRecursive($source, $target)
     {
-        $sourcePath = $source->pathAbsolute;
-        $targetPath = $target->pathAbsolute;
+        $sourcePath = $source->getAbsolutePath();
+        $targetPath = $target->getAbsolutePath();
 
         // handle symlinks
         if (is_link($sourcePath)) {
@@ -349,8 +349,8 @@ class Storage extends BaseStorage implements StorageInterface
                 continue;
             }
 
-            $itemSource = new ItemModel($source->pathRelative . $file);
-            $itemTarget = new ItemModel($target->pathRelative . $file);
+            $itemSource = new ItemModel($source->getRelativePath() . $file);
+            $itemTarget = new ItemModel($target->getRelativePath() . $file);
             $this->copyRecursive($itemSource, $itemTarget);
         }
         closedir($handle);
@@ -367,7 +367,7 @@ class Storage extends BaseStorage implements StorageInterface
      */
     public function renameRecursive($source, $target)
     {
-        return rename($source->pathAbsolute, $target->pathAbsolute);
+        return rename($source->getAbsolutePath(), $target->getAbsolutePath());
     }
 
     /**
@@ -378,7 +378,7 @@ class Storage extends BaseStorage implements StorageInterface
      */
     public function unlinkRecursive($target)
     {
-        $targetPath = $target->pathAbsolute;
+        $targetPath = $target->getAbsolutePath();
 
         // delete a single file
         if (!is_dir($targetPath)) {
@@ -395,7 +395,7 @@ class Storage extends BaseStorage implements StorageInterface
 				continue;
 			}
 
-            $itemTarget = new ItemModel($target->pathRelative . '/' . $obj);
+            $itemTarget = new ItemModel($target->getRelativePath() . '/' . $obj);
             $this->unlinkRecursive($itemTarget);
 		}
 		closedir($handle);
@@ -414,7 +414,7 @@ class Storage extends BaseStorage implements StorageInterface
 	    $modelDir = new ItemModel($dir);
 
 		// suppress permission denied and other errors
-		$files = @scandir($modelDir->pathAbsolute);
+		$files = @scandir($modelDir->getAbsolutePath());
 		if($files === false) {
 			return $result;
 		}
@@ -423,19 +423,19 @@ class Storage extends BaseStorage implements StorageInterface
 			if($file == "." || $file == "..") {
 				continue;
 			}
-            if (is_dir($modelDir->pathAbsolute . $file)) {
+            if (is_dir($modelDir->getAbsolutePath() . $file)) {
                 $file .= '/';
             }
 
-            $model = new ItemModel($modelDir->pathRelative . $file);
+            $model = new ItemModel($modelDir->getRelativePath() . $file);
 
             if ($model->hasReadPermission() && $model->isUnrestricted()) {
-                if ($model->isDir) {
+                if ($model->isDirectory()) {
                     $result['folders']++;
-                    $this->getDirSummary($model->pathRelative, $result);
+                    $this->getDirSummary($model->getRelativePath(), $result);
                 } else {
                     $result['files']++;
-                    $result['size'] += filesize($model->pathAbsolute);
+                    $result['size'] += filesize($model->getAbsolutePath());
                 }
             }
 		}

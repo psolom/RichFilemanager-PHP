@@ -62,17 +62,6 @@ class BaseStorage
     }
 
     /**
-     * Format timestamp string.
-     *
-     * @param integer $timestamp
-     * @return string
-     */
-    public function formatDate($timestamp)
-    {
-        return date($this->config('options.dateFormat'), $timestamp);
-    }
-
-    /**
      * Return storage instance that stores image thumbnails.
      *
      * @return \RFM\Repository\StorageInterface|\RFM\Repository\Local\Storage|\RFM\Repository\S3\Storage

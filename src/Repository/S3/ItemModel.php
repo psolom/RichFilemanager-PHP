@@ -6,6 +6,7 @@ use RFM\Facade\Log;
 use RFM\Factory\Factory;
 use RFM\Repository\BaseStorage;
 use RFM\Repository\BaseItemModel;
+use RFM\Repository\ItemData;
 use RFM\Repository\ItemInterface;
 use function RFM\app;
 use function RFM\mime_type_by_extension;
@@ -22,14 +23,14 @@ class ItemModel extends BaseItemModel implements ItemInterface
      *
      * @var string
      */
-    public $pathAbsolute;
+    protected $pathAbsolute;
 
     /**
      * Relative path for item model, the only value required to create item model.
      *
      * @var string
      */
-    public $pathRelative;
+    protected $pathRelative;
 
     /**
      * Whether item exists in file system on any other storage.
@@ -37,7 +38,7 @@ class ItemModel extends BaseItemModel implements ItemInterface
      *
      * @var bool
      */
-    public $isExists;
+    protected $isExists;
 
     /**
      * Whether item is folder.
@@ -45,7 +46,7 @@ class ItemModel extends BaseItemModel implements ItemInterface
      *
      * @var bool
      */
-    public $isDir;
+    protected $isDir;
 
     /**
      * Define whether item is thumbnail file or thumbnails folder.
@@ -53,7 +54,29 @@ class ItemModel extends BaseItemModel implements ItemInterface
      *
      * @var bool
      */
-    private $isThumbnail;
+    protected $isThumbnail;
+
+    /**
+     * Calculated item data stored into the ItemData object instance.
+     *
+     * @var ItemData
+     */
+    protected $itemData;
+
+    /**
+     * Model for parent folder of the current item.
+     * Return NULL if there is no parent folder (user storage root folder).
+     *
+     * @var null|self
+     */
+    protected $parent;
+
+    /**
+     * Model for thumbnail file or folder of the current item.
+     *
+     * @var null|self
+     */
+    protected $thumbnail;
 
     /**
      * List of parameters based on ACL policies.
@@ -61,21 +84,6 @@ class ItemModel extends BaseItemModel implements ItemInterface
      * @var array
      */
     private $aclParams;
-
-    /**
-     * Model for parent folder of the current item.
-     * Return NULL if there is no parent folder (user storage root folder).
-     *
-     * @var null|ItemModel
-     */
-    private $parent;
-
-    /**
-     * Model for thumbnail file or folder of the current item.
-     *
-     * @var null|ItemModel
-     */
-    private $thumbnail;
 
     /**
      * ItemModel constructor.
@@ -86,46 +94,182 @@ class ItemModel extends BaseItemModel implements ItemInterface
     public function __construct($path, $isThumbnail = false)
     {
         $this->setStorage(BaseStorage::STORAGE_S3_NAME);
-        $this->pathRelative = $path;
         $this->isThumbnail = $isThumbnail;
-        $this->pathAbsolute = $this->getAbsolutePath();
-        $this->isExists = $this->getIsExists();
-        $this->isDir = $this->getIsDirectory();
+        $this->resetStats($path);
     }
 
     /**
-     * Build and return item details info.
+     * Update model stats from original storage item.
      *
-     * @return array
+     * @param string|null $path
+     * @return $this
      */
-    public function getInfo()
+    public function resetStats($path = null)
     {
-        $pathInfo = pathinfo($this->pathAbsolute);
-        $filemtime = @filemtime($this->pathAbsolute);
-
-        if($this->isDir) {
-            $model = $this->folderModel;
-        } else {
-            $model = $this->fileModel;
-            $model['attributes']['size'] = filesize($this->pathAbsolute);
+        if ($path !== null) {
+            $this->setRelativePath($path);
+            $this->setAbsolutePath();
+            $this->parent = null;
+            $this->thumbnail = null;
         }
 
-        $model['id'] = $this->pathRelative;
-        $model['attributes']['name'] = $pathInfo['basename'];
-        $model['attributes']['path'] = $this->getDynamicPath();
-        $model['attributes']['readable'] = 1;
-        $model['attributes']['writable'] = 1;
-        $model['attributes']['timestamp'] = $filemtime;
-        $model['attributes']['modified'] = $this->storage->formatDate($filemtime);
-        //$model['attributes']['created'] = $model['attributes']['modified']; // PHP cannot get create timestamp
-        return $model;
+        // clear file status cache
+        clearstatcache(true, $this->pathAbsolute);
+
+        $this->setIsExists();
+        $this->setIsDirectory();
+        $this->itemData = null;
+
+        return $this;
+    }
+
+    /**
+     * Return relative path to item.
+     *
+     * @return string
+     */
+    public function getRelativePath()
+    {
+        return $this->pathRelative;
+    }
+
+    /**
+     * Set relative item path.
+     *
+     * @param string $path
+     */
+    protected function setRelativePath($path)
+    {
+        $this->pathRelative = $path;
+    }
+
+    /**
+     * Return absolute path to item.
+     *
+     * @return string
+     */
+    public function getAbsolutePath()
+    {
+        return $this->pathAbsolute;
+    }
+
+    /**
+     * Set absolute item path. Based on relative item path.
+     */
+    protected function setAbsolutePath()
+    {
+        if ($this->isThumbnail) {
+            $pathRoot = $this->storage->forThumbnail()->getRoot();
+        } else {
+            $pathRoot = $this->storage->getRoot();
+        }
+
+        $this->pathAbsolute = rtrim($pathRoot, '/') . $this->pathRelative;
+    }
+
+    /**
+     * Define whether item is file or folder.
+     * In case item doesn't exist at a storage we check the trailing slash.
+     * That is why it's important to add slashes to the end of folders path.
+     *
+     * S3 differs directory by slash (/) in the end of path. Could be used to check non-existent or cached object.
+     * @link http://stackoverflow.com/questions/22312833/how-can-you-tell-if-an-object-is-a-folder-on-aws-s3
+     */
+    public function setIsDirectory()
+    {
+        if ($this->isExists) {
+            $this->isDir = is_dir($this->pathAbsolute);
+        } else {
+            $this->isDir = substr($this->pathRelative, -1, 1) === '/';
+        }
+    }
+
+    /**
+     * Validate whether item is file or folder.
+     *
+     * @return bool
+     */
+    public function isDirectory()
+    {
+        return $this->isDir;
+    }
+
+    /**
+     * Define if file or folder exists.
+     */
+    protected function setIsExists()
+    {
+        $this->isExists = file_exists($this->pathAbsolute);
+    }
+
+    /**
+     * Validate whether file or folder exists.
+     *
+     * @return bool
+     */
+    public function isExists()
+    {
+        return $this->isExists;
+    }
+
+    /**
+     * Build item data class instance.
+     */
+    public function compileData()
+    {
+        $data = new ItemData();
+        $data->pathRelative = $this->pathRelative;
+        $data->pathAbsolute = $this->pathAbsolute;
+        $data->pathDynamic = $this->getDynamicPath();
+        $data->isDirectory = $this->isDir;
+        $data->isExists = $this->isExists;
+        $data->isImage = $this->isImageFile();
+        $data->isRoot = $this->isRoot();
+        $data->timeModified = filemtime($this->pathAbsolute);
+        $data->timeCreated = $data->timeModified;
+
+        // check file permissions
+        $data->isReadable = $this->isExists ? $this->hasReadPermission() : false;
+        $data->isWritable = $this->isExists ? $this->hasWritePermission() : false;
+
+        // fetch file info
+        $pathInfo = pathinfo($this->pathAbsolute);
+        $data->basename = $pathInfo['basename'];
+
+        // get file size
+        if (!$this->isDir && $data->isReadable) {
+            $data->size = filesize($this->pathAbsolute);
+        }
+
+        // handle image data
+        if ($data->isImage) {
+            $data->imageData['isThumbnail'] = $this->isThumbnail;
+            $data->imageData['pathOriginal'] = $this->getOriginalPath();
+            $data->imageData['pathThumbnail'] = $this->getThumbnailPath();
+        }
+
+        $this->itemData = $data;
+    }
+
+    /**
+     * Return item data class instance.
+     *
+     * @return ItemData
+     */
+    public function getData()
+    {
+        if (is_null($this->itemData)) {
+            $this->compileData();
+        }
+
+        return $this->itemData;
     }
 
     /**
      * Return model for parent folder on the current item.
      * Create and cache if not existing yet.
      *
-     * @return null|ItemModel
+     * @return null|self
      */
     public function closest()
     {
@@ -149,7 +293,7 @@ class ItemModel extends BaseItemModel implements ItemInterface
      * Return model for thumbnail of the current item.
      * Create and cache if not existing yet.
      *
-     * @return null|ItemModel
+     * @return null|self
      */
     public function thumbnail()
     {
@@ -158,52 +302,6 @@ class ItemModel extends BaseItemModel implements ItemInterface
         }
 
         return $this->thumbnail;
-    }
-
-    /**
-     * Define whether item is file or folder.
-     * In case item doesn't exists we check the trailing slash.
-     * That is why it's important to add slashes to the wnd of folders path.
-     *
-     * S3 differs directory by slash (/) in the end of path. Could be used to check non-existent or cached object.
-     * @link http://stackoverflow.com/questions/22312833/how-can-you-tell-if-an-object-is-a-folder-on-aws-s3
-     *
-     * @return bool
-     */
-    public function getIsDirectory()
-    {
-        if ($this->isExists) {
-            return is_dir($this->pathAbsolute);
-        } else {
-            return substr($this->pathRelative, -1, 1) === '/';
-        }
-    }
-
-    /**
-     * Check if file or folder exists.
-     *
-     * @return bool
-     */
-    public function getIsExists()
-    {
-        return file_exists($this->pathAbsolute);
-    }
-
-    /**
-     * Return absolute path to item.
-     * Based on relative item path.
-     *
-     * @return string
-     */
-    public function getAbsolutePath()
-    {
-        if ($this->isThumbnail) {
-            $pathRoot = $this->storage->forThumbnail()->getRoot();
-        } else {
-            $pathRoot = $this->storage->getRoot();
-        }
-
-        return rtrim($pathRoot, '/') . $this->pathRelative;
     }
 
     /**
@@ -220,13 +318,17 @@ class ItemModel extends BaseItemModel implements ItemInterface
     }
 
     /**
-     * Return thumbnail relative path from given path.
+     * Return thumbnail relative path for item model.
      * Work for both files and dirs paths.
      *
      * @return string
      */
     public function getThumbnailPath()
     {
+        if ($this->isThumbnail) {
+            return $this->pathRelative;
+        }
+
         $path = '/' . $this->storage->config('images.thumbnail.dir') . '/' . $this->pathRelative;
 
         return $this->storage->cleanPath($path);
@@ -339,19 +441,19 @@ class ItemModel extends BaseItemModel implements ItemInterface
         $modelExistent = $modelTarget;
 
         // look for closest existent folder
-        while (!$modelExistent->isRoot() && !$modelExistent->isExists) {
+        while (!$modelExistent->isRoot() && !$modelExistent->isExists()) {
             $modelExistent = $modelExistent->closest();
         }
 
         // check that the closest existent folder is writable
-        if ($modelExistent->isExists && !$modelExistent->hasWritePermission()) {
+        if ($modelExistent->isExists() && !$modelExistent->hasWritePermission()) {
             return;
         }
 
-        Log::info('generating thumbnail "' . $modelThumb->pathAbsolute . '"');
+        Log::info('generating thumbnail "' . $modelThumb->getAbsolutePath() . '"');
 
         // create folder if it does not exist
-        if (!$modelThumb->closest()->isExists) {
+        if (!$modelThumb->closest()->isExists()) {
             $this->storage->forThumbnail()->createFolder($modelTarget);
         }
 

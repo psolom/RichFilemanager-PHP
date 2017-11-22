@@ -309,7 +309,7 @@ class Storage extends BaseStorage implements StorageInterface
             ]),
         ]);
 
-        $copied = copy($source->pathAbsolute, $target->pathAbsolute, $context);
+        $copied = copy($source->getAbsolutePath(), $target->getAbsolutePath(), $context);
 
         if ($copied && $remove === true) {
             $this->s3->delete($source->getDynamicPath());
@@ -329,18 +329,18 @@ class Storage extends BaseStorage implements StorageInterface
     public function copyRecursive($source, $target)
     {
         $flag = true;
-        if ($source->isDir) {
-            $files = $this->getFilesList(rtrim($source->pathAbsolute, '/'));
+        if ($source->isDirectory()) {
+            $files = $this->getFilesList(rtrim($source->getAbsolutePath(), '/'));
             $files = array_reverse($files);
             $flag = $flag && $this->createFolder($target, $source);
 
             foreach ($files as $path) {
-                $pattern = preg_quote($source->pathAbsolute);
+                $pattern = preg_quote($source->getAbsolutePath());
                 $relativePath = preg_replace("#^{$pattern}#", '', $path);
-                $itemSource = new ItemModel($source->pathRelative . $relativePath);
-                $itemTarget = new ItemModel($target->pathRelative . $relativePath);
+                $itemSource = new ItemModel($source->getRelativePath() . $relativePath);
+                $itemTarget = new ItemModel($target->getRelativePath() . $relativePath);
 
-                if ($itemSource->isDir) {
+                if ($itemSource->isDirectory()) {
                     $flag = $flag && $this->createFolder($itemTarget, $itemSource);
                 } else {
                     $flag = $flag && $this->copyItem($itemSource, $itemTarget);
@@ -364,25 +364,25 @@ class Storage extends BaseStorage implements StorageInterface
     public function renameRecursive($source, $target)
     {
         $flag = true;
-        if ($source->isDir) {
-            $files = $this->getFilesList(rtrim($source->pathAbsolute, '/'));
+        if ($source->isDirectory()) {
+            $files = $this->getFilesList(rtrim($source->getAbsolutePath(), '/'));
             $files = array_reverse($files);
             $flag = $flag && $this->createFolder($target, $source);
 
             foreach ($files as $path) {
-                $pattern = preg_quote($source->pathAbsolute);
+                $pattern = preg_quote($source->getAbsolutePath());
                 $relativePath = preg_replace("#^{$pattern}#", '', $path);
-                $itemSource = new ItemModel($source->pathRelative . $relativePath);
-                $itemTarget = new ItemModel($target->pathRelative . $relativePath);
+                $itemSource = new ItemModel($source->getRelativePath() . $relativePath);
+                $itemTarget = new ItemModel($target->getRelativePath() . $relativePath);
 
-                if ($itemSource->isDir) {
+                if ($itemSource->isDirectory()) {
                     $flag = $flag && $this->createFolder($itemTarget, $itemSource);
-                    rmdir($itemSource->pathAbsolute);
+                    rmdir($itemSource->getAbsolutePath());
                 } else {
                     $flag = $flag && $this->copyItem($itemSource, $itemTarget, true);
                 }
             }
-            rmdir($source->pathAbsolute);
+            rmdir($source->getAbsolutePath());
         } else {
             $flag = $flag && $this->copyItem($source, $target, true);
         }
@@ -399,7 +399,7 @@ class Storage extends BaseStorage implements StorageInterface
     public function unlinkRecursive($target)
     {
         $key = $target->getDynamicPath();
-        if ($target->isDir) {
+        if ($target->isDirectory()) {
             $this->s3->batchDelete($key);
         } else {
             $this->s3->delete($key);
@@ -429,19 +429,19 @@ class Storage extends BaseStorage implements StorageInterface
             ]
         ]);
 
-        $handle = @opendir($modelDir->pathAbsolute, $context);
+        $handle = @opendir($modelDir->getAbsolutePath(), $context);
 
         while (false !== ($file = readdir($handle))) {
-            if (is_dir($modelDir->pathAbsolute . $file)) {
+            if (is_dir($modelDir->getAbsolutePath() . $file)) {
                 $file .= '/';
             }
 
-            $model = new ItemModel($modelDir->pathRelative . $file);
+            $model = new ItemModel($modelDir->getRelativePath() . $file);
 
             if ($model->hasReadPermission() && $model->isUnrestricted()) {
-                if (!$model->isDir) {
+                if (!$model->isDirectory()) {
                     $result['files']++;
-                    $result['size'] += filesize($model->pathAbsolute);
+                    $result['size'] += filesize($model->getAbsolutePath());
                 } else {
                     // stream wrapper opendir() lists only files
                 }

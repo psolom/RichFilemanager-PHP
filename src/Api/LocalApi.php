@@ -4,10 +4,12 @@ namespace RFM\Api;
 
 use RFM\Facade\Input;
 use RFM\Facade\Log;
+use RFM\Event\Api as ApiEvent;
 use RFM\Repository\BaseStorage;
 use RFM\Repository\Local\ItemModel;
 use function RFM\app;
 use function RFM\request;
+use function RFM\dispatcher;
 
 class LocalApi implements ApiInterface
 {
@@ -62,43 +64,52 @@ class LocalApi implements ApiInterface
      */
     public function actionGetFolder()
     {
-        $files_list = [];
-        $response_data = [];
+        $filesList = [];
+        $filesPaths = [];
+        $responseData = [];
         $model = new ItemModel(Input::get('path'));
-        Log::info('opening folder "' . $model->pathAbsolute . '"');
+        Log::info('opening folder "' . $model->getAbsolutePath() . '"');
 
         $model->checkPath();
         $model->checkReadPermission();
         $model->checkRestrictions();
 
-        if (!$model->isDir) {
-            app()->error('DIRECTORY_NOT_EXIST', [$model->pathRelative]);
+        if (!$model->isDirectory()) {
+            app()->error('DIRECTORY_NOT_EXIST', [$model->getRelativePath()]);
         }
 
-        if (!$handle = @opendir($model->pathAbsolute)) {
-            app()->error('UNABLE_TO_OPEN_DIRECTORY', [$model->pathRelative]);
+        if (!$handle = @opendir($model->getAbsolutePath())) {
+            app()->error('UNABLE_TO_OPEN_DIRECTORY', [$model->getRelativePath()]);
         } else {
             while (false !== ($file = readdir($handle))) {
                 if ($file != "." && $file != "..") {
-                    array_push($files_list, $file);
+                    array_push($filesList, $file);
                 }
             }
             closedir($handle);
 
-            foreach ($files_list as $file) {
-                $file_path = $model->pathRelative . $file;
-                if (is_dir($model->pathAbsolute . $file)) {
-                    $file_path .= '/';
+            foreach ($filesList as $file) {
+                $filePath = $model->getRelativePath() . $file;
+                $fileFullPath = $model->getAbsolutePath() . $file;
+
+                // directory path must end with slash
+                if (is_dir($fileFullPath)) {
+                    $filePath .= '/';
                 }
 
-                $item = new ItemModel($file_path);
+                $item = new ItemModel($filePath);
                 if ($item->isUnrestricted()) {
-                    $response_data[] = $item->getInfo();
+                    $filesPaths[] = $item->getAbsolutePath();
+                    $responseData[] = $item->getData()->formatJsonApi();
                 }
             }
         }
 
-        return $response_data;
+        // create event and dispatch it
+        $event = new ApiEvent\AfterFolderReadEvent($model->getData(), $filesPaths);
+        dispatcher()->dispatch($event::NAME, $event);
+
+        return $responseData;
     }
 
     /**
@@ -107,17 +118,17 @@ class LocalApi implements ApiInterface
     public function actionGetFile()
     {
         $model = new ItemModel(Input::get('path'));
-        Log::info('opening file "' . $model->pathAbsolute . '"');
+        Log::info('opening file "' . $model->getAbsolutePath() . '"');
 
         $model->checkPath();
         $model->checkReadPermission();
         $model->checkRestrictions();
 
-        if ($model->isDir) {
+        if ($model->isDirectory()) {
             app()->error('FORBIDDEN_ACTION_DIR');
         }
 
-        return $model->getInfo();
+        return $model->getData()->formatJsonApi();
     }
 
     /**
@@ -126,15 +137,16 @@ class LocalApi implements ApiInterface
     public function actionUpload()
     {
         $model = new ItemModel(Input::get('path'));
-        Log::info('uploading to "' . $model->pathAbsolute . '"');
+        Log::info('uploading to "' . $model->getAbsolutePath() . '"');
 
         $model->checkPath();
         $model->checkWritePermission();
 
+        $itemData = null;
+        $responseData = [];
         $content = $this->storage->initUploader($model)->post(false);
-
-        $response_data = [];
         $files = isset($content['files']) ? $content['files'] : null;
+
         // there is only one file in the array as long as "singleFileUploads" is set to "true"
         if ($files && is_array($files) && is_object($files[0])) {
             $file = $files[0];
@@ -142,15 +154,20 @@ class LocalApi implements ApiInterface
                 $error = is_array($file->error) ? $file->error : [$file->error];
                 app()->error($error[0], isset($error[1]) ? $error[1] : []);
             } else {
-                $uploadedPath = $this->storage->cleanPath('/' . $model->pathRelative . '/' . $file->name);
+                $uploadedPath = $this->storage->cleanPath('/' . $model->getRelativePath() . '/' . $file->name);
                 $modelUploaded = new ItemModel($uploadedPath);
-                $response_data[] = $modelUploaded->getInfo();
+                $itemData = $modelUploaded->getData();
+                $responseData[] = $itemData->formatJsonApi();
             }
         } else {
             app()->error('ERROR_UPLOADING_FILE');
         }
 
-        return $response_data;
+        // create event and dispatch it
+        $event = new ApiEvent\AfterFileUploadEvent($itemData);
+        dispatcher()->dispatch($event::NAME, $event);
+
+        return $responseData;
     }
 
     /**
@@ -169,11 +186,11 @@ class LocalApi implements ApiInterface
         $relativePath = $this->storage->cleanPath('/' . $targetPath . '/' . $dirName);
 
         $model = new ItemModel($relativePath);
-        Log::info('adding folder "' . $model->pathAbsolute . '"');
+        Log::info('adding folder "' . $model->getAbsolutePath() . '"');
 
         $model->checkRestrictions();
 
-        if ($model->isExists && $model->isDir) {
+        if ($model->isExists() && $model->isDirectory()) {
             app()->error('DIRECTORY_ALREADY_EXISTS', [$targetName]);
         }
 
@@ -181,7 +198,14 @@ class LocalApi implements ApiInterface
             app()->error('UNABLE_TO_CREATE_DIRECTORY', [$targetName]);
         }
 
-        return $model->getInfo();
+        // update items stats
+        $model->resetStats()->compileData();
+
+        // create event and dispatch it
+        $event = new ApiEvent\AfterFolderCreateEvent($model->getData());
+        dispatcher()->dispatch($event::NAME, $event);
+
+        return $model->getData()->formatJsonApi();
     }
 
     /**
@@ -190,7 +214,7 @@ class LocalApi implements ApiInterface
     public function actionRename()
     {
         $modelOld = new ItemModel(Input::get('old'));
-        $suffix = $modelOld->isDir ? '/' : '';
+        $suffix = $modelOld->isDirectory() ? '/' : '';
         $filename = Input::get('new');
 
         // forbid to change path during rename
@@ -199,12 +223,12 @@ class LocalApi implements ApiInterface
         }
 
         // check if not requesting root storage folder
-        if ($modelOld->isDir && $modelOld->isRoot()) {
+        if ($modelOld->isDirectory() && $modelOld->isRoot()) {
             app()->error('NOT_ALLOWED');
         }
 
-        $modelNew = new ItemModel($modelOld->closest()->pathRelative . $filename . $suffix);
-        Log::info('moving "' . $modelOld->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
+        $modelNew = new ItemModel($modelOld->closest()->getRelativePath() . $filename . $suffix);
+        Log::info('moving "' . $modelOld->getAbsolutePath() . '" to "' . $modelNew->getAbsolutePath() . '"');
 
         $modelOld->checkPath();
         $modelOld->checkWritePermission();
@@ -216,35 +240,43 @@ class LocalApi implements ApiInterface
         $modelThumbNew = $modelNew->thumbnail();
 
         // check thumbnail file or thumbnails folder permissions
-        if ($modelThumbOld->isExists) {
+        if ($modelThumbOld->isExists()) {
             $modelThumbOld->checkWritePermission();
         }
 
-        if ($modelNew->isExists) {
-            if ($modelNew->isDir) {
-                app()->error('DIRECTORY_ALREADY_EXISTS', [$modelNew->pathRelative]);
+        if ($modelNew->isExists()) {
+            if ($modelNew->isDirectory()) {
+                app()->error('DIRECTORY_ALREADY_EXISTS', [$modelNew->getRelativePath()]);
             } else {
-                app()->error('FILE_ALREADY_EXISTS', [$modelNew->pathRelative]);
+                app()->error('FILE_ALREADY_EXISTS', [$modelNew->getRelativePath()]);
             }
         }
 
         // rename file or folder
         if ($this->storage->renameRecursive($modelOld, $modelNew)) {
-            Log::info('renamed "' . $modelOld->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
+            Log::info('renamed "' . $modelOld->getAbsolutePath() . '" to "' . $modelNew->getAbsolutePath() . '"');
 
             // rename thumbnail file or thumbnails folder if exists
-            if ($modelThumbOld->isExists) {
+            if ($modelThumbOld->isExists()) {
                 $this->storage->renameRecursive($modelThumbOld, $modelThumbNew);
             }
         } else {
-            if ($modelOld->isDir) {
-                app()->error('ERROR_RENAMING_DIRECTORY', [$modelOld->pathRelative, $modelNew->pathRelative]);
+            if ($modelOld->isDirectory()) {
+                app()->error('ERROR_RENAMING_DIRECTORY', [$modelOld->getRelativePath(), $modelNew->getRelativePath()]);
             } else {
-                app()->error('ERROR_RENAMING_FILE', [$modelOld->pathRelative, $modelNew->pathRelative]);
+                app()->error('ERROR_RENAMING_FILE', [$modelOld->getRelativePath(), $modelNew->getRelativePath()]);
             }
         }
 
-        return $modelNew->getInfo();
+        // update items stats
+        $modelNew->resetStats()->compileData();
+        $modelOld->resetStats()->compileData();
+
+        // create event and dispatch it
+        $event = new ApiEvent\AfterItemRenameEvent($modelNew->getData(), $modelOld->getData());
+        dispatcher()->dispatch($event::NAME, $event);
+
+        return $modelNew->getData()->formatJsonApi();
     }
 
     /**
@@ -255,17 +287,17 @@ class LocalApi implements ApiInterface
         $modelSource = new ItemModel(Input::get('source'));
         $modelTarget = new ItemModel(Input::get('target'));
 
-        $suffix = $modelSource->isDir ? '/' : '';
-        $basename = basename($modelSource->pathAbsolute);
-        $modelNew = new ItemModel($modelTarget->pathRelative . $basename . $suffix);
-        Log::info('copying "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
+        $suffix = $modelSource->isDirectory() ? '/' : '';
+        $basename = basename($modelSource->getAbsolutePath());
+        $modelNew = new ItemModel($modelTarget->getRelativePath() . $basename . $suffix);
+        Log::info('copying "' . $modelSource->getAbsolutePath() . '" to "' . $modelNew->getAbsolutePath() . '"');
 
-        if (!$modelTarget->isDir) {
-            app()->error('DIRECTORY_NOT_EXIST', [$modelTarget->pathRelative]);
+        if (!$modelTarget->isDirectory()) {
+            app()->error('DIRECTORY_NOT_EXIST', [$modelTarget->getRelativePath()]);
         }
 
         // check if not requesting root storage folder
-        if ($modelSource->isDir && $modelSource->isRoot()) {
+        if ($modelSource->isDirectory() && $modelSource->isRoot()) {
             app()->error('NOT_ALLOWED');
         }
 
@@ -278,11 +310,11 @@ class LocalApi implements ApiInterface
         $modelNew->checkRestrictions();
 
         // check if file already exists
-        if ($modelNew->isExists) {
-            if ($modelNew->isDir) {
-                app()->error('DIRECTORY_ALREADY_EXISTS', [$modelNew->pathRelative]);
+        if ($modelNew->isExists()) {
+            if ($modelNew->isDirectory()) {
+                app()->error('DIRECTORY_ALREADY_EXISTS', [$modelNew->getRelativePath()]);
             } else {
-                app()->error('FILE_ALREADY_EXISTS', [$modelNew->pathRelative]);
+                app()->error('FILE_ALREADY_EXISTS', [$modelNew->getRelativePath()]);
             }
         }
 
@@ -291,32 +323,39 @@ class LocalApi implements ApiInterface
         $modelThumbNew = $modelNew->thumbnail();
 
         // check thumbnail file or thumbnails folder permissions
-        if ($modelThumbOld->isExists) {
+        if ($modelThumbOld->isExists()) {
             $modelThumbOld->checkReadPermission();
-            if ($modelThumbNew->closest()->isExists) {
+            if ($modelThumbNew->closest()->isExists()) {
                 $modelThumbNew->closest()->checkWritePermission();
             }
         }
 
         // copy file or folder
         if($this->storage->copyRecursive($modelSource, $modelNew)) {
-            Log::info('copied "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
+            Log::info('copied "' . $modelSource->getAbsolutePath() . '" to "' . $modelNew->getAbsolutePath() . '"');
 
             // copy thumbnail file or thumbnails folder
-            if ($modelThumbOld->isExists) {
-                if ($modelThumbNew->closest()->isExists) {
+            if ($modelThumbOld->isExists()) {
+                if ($modelThumbNew->closest()->isExists()) {
                     $this->storage->copyRecursive($modelThumbOld, $modelThumbNew);
                 }
             }
         } else {
-            if ($modelSource->isDir) {
-                app()->error('ERROR_COPYING_DIRECTORY', [$basename, $modelTarget->pathRelative]);
+            if ($modelSource->isDirectory()) {
+                app()->error('ERROR_COPYING_DIRECTORY', [$basename, $modelTarget->getRelativePath()]);
             } else {
-                app()->error('ERROR_COPYING_FILE', [$basename, $modelTarget->pathRelative]);
+                app()->error('ERROR_COPYING_FILE', [$basename, $modelTarget->getRelativePath()]);
             }
         }
 
-        return $modelNew->getInfo();
+        // update items stats
+        $modelNew->resetStats()->compileData();
+
+        // create event and dispatch it
+        $event = new ApiEvent\AfterItemCopyEvent($modelNew->getData(), $modelSource->getData());
+        dispatcher()->dispatch($event::NAME, $event);
+
+        return $modelNew->getData()->formatJsonApi();
     }
 
     /**
@@ -327,17 +366,17 @@ class LocalApi implements ApiInterface
         $modelSource = new ItemModel(Input::get('old'));
         $modelTarget = new ItemModel(Input::get('new'));
 
-        $suffix = $modelSource->isDir ? '/' : '';
-        $basename = basename($modelSource->pathAbsolute);
-        $modelNew = new ItemModel($modelTarget->pathRelative . $basename . $suffix);
-        Log::info('moving "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
+        $suffix = $modelSource->isDirectory() ? '/' : '';
+        $basename = basename($modelSource->getAbsolutePath());
+        $modelNew = new ItemModel($modelTarget->getRelativePath() . $basename . $suffix);
+        Log::info('moving "' . $modelSource->getAbsolutePath() . '" to "' . $modelNew->getAbsolutePath() . '"');
 
-        if (!$modelTarget->isDir) {
-            app()->error('DIRECTORY_NOT_EXIST', [$modelTarget->pathRelative]);
+        if (!$modelTarget->isDirectory()) {
+            app()->error('DIRECTORY_NOT_EXIST', [$modelTarget->getRelativePath()]);
         }
 
         // check if not requesting root storage folder
-        if ($modelSource->isDir && $modelSource->isRoot()) {
+        if ($modelSource->isDirectory() && $modelSource->isRoot()) {
             app()->error('NOT_ALLOWED');
         }
 
@@ -350,11 +389,11 @@ class LocalApi implements ApiInterface
         $modelNew->checkRestrictions();
 
         // check if file already exists
-        if ($modelNew->isExists) {
-            if ($modelNew->isDir) {
-                app()->error('DIRECTORY_ALREADY_EXISTS', [$modelNew->pathRelative]);
+        if ($modelNew->isExists()) {
+            if ($modelNew->isDirectory()) {
+                app()->error('DIRECTORY_ALREADY_EXISTS', [$modelNew->getRelativePath()]);
             } else {
-                app()->error('FILE_ALREADY_EXISTS', [$modelNew->pathRelative]);
+                app()->error('FILE_ALREADY_EXISTS', [$modelNew->getRelativePath()]);
             }
         }
 
@@ -363,35 +402,43 @@ class LocalApi implements ApiInterface
         $modelThumbNew = $modelNew->thumbnail();
 
         // check thumbnail file or thumbnails folder permissions
-        if ($modelThumbOld->isExists) {
+        if ($modelThumbOld->isExists()) {
             $modelThumbOld->checkWritePermission();
-            if ($modelThumbNew->closest()->isExists) {
+            if ($modelThumbNew->closest()->isExists()) {
                 $modelThumbNew->closest()->checkWritePermission();
             }
         }
 
         // move file or folder
         if ($this->storage->renameRecursive($modelSource, $modelNew)) {
-            Log::info('moved "' . $modelSource->pathAbsolute . '" to "' . $modelNew->pathAbsolute . '"');
+            Log::info('moved "' . $modelSource->getAbsolutePath() . '" to "' . $modelNew->getAbsolutePath() . '"');
 
             // move thumbnail file or thumbnails folder if exists
-            if ($modelThumbOld->isExists) {
+            if ($modelThumbOld->isExists()) {
                 // do if target paths exists, otherwise remove old thumbnail(s)
-                if ($modelThumbNew->closest()->isExists) {
+                if ($modelThumbNew->closest()->isExists()) {
                     $this->storage->renameRecursive($modelThumbOld, $modelThumbNew);
                 } else {
                     $modelThumbOld->remove();
                 }
             }
         } else {
-            if ($modelSource->isDir) {
-                app()->error('ERROR_MOVING_DIRECTORY', [$basename, $modelTarget->pathRelative]);
+            if ($modelSource->isDirectory()) {
+                app()->error('ERROR_MOVING_DIRECTORY', [$basename, $modelTarget->getRelativePath()]);
             } else {
-                app()->error('ERROR_MOVING_FILE', [$basename, $modelTarget->pathRelative]);
+                app()->error('ERROR_MOVING_FILE', [$basename, $modelTarget->getRelativePath()]);
             }
         }
 
-        return $modelNew->getInfo();
+        // update items stats
+        $modelNew->resetStats()->compileData();
+        $modelSource->resetStats()->compileData();
+
+        // create event and dispatch it
+        $event = new ApiEvent\AfterItemMoveEvent($modelNew->getData(), $modelSource->getData());
+        dispatcher()->dispatch($event::NAME, $event);
+
+        return $modelNew->getData()->formatJsonApi();
     }
 
     /**
@@ -400,23 +447,23 @@ class LocalApi implements ApiInterface
     public function actionEditFile()
     {
         $model = new ItemModel(Input::get('path'));
-        Log::info('opening file "' . $model->pathAbsolute . '"');
+        Log::info('opening file "' . $model->getAbsolutePath() . '"');
 
         $model->checkPath();
         $model->checkReadPermission();
         $model->checkRestrictions();
 
-        if($model->isDir) {
+        if($model->isDirectory()) {
             app()->error('FORBIDDEN_ACTION_DIR');
         }
 
-        $content = file_get_contents($model->pathAbsolute);
+        $content = file_get_contents($model->getAbsolutePath());
 
         if($content === false) {
             app()->error('ERROR_OPENING_FILE');
         }
 
-        $item = $model->getInfo();
+        $item = $model->getData()->formatJsonApi();
         $item['attributes']['content'] = $content;
         return $item;
     }
@@ -427,27 +474,27 @@ class LocalApi implements ApiInterface
     public function actionSaveFile()
     {
         $model = new ItemModel(Input::get('path'));
-        Log::info('saving file "' . $model->pathAbsolute . '"');
+        Log::info('saving file "' . $model->getAbsolutePath() . '"');
 
         $model->checkPath();
         $model->checkWritePermission();
         $model->checkRestrictions();
 
-        if($model->isDir) {
+        if($model->isDirectory()) {
             app()->error('FORBIDDEN_ACTION_DIR');
         }
 
-        $result = file_put_contents($model->pathAbsolute, Input::get('content'), LOCK_EX);
+        $result = file_put_contents($model->getAbsolutePath(), Input::get('content'), LOCK_EX);
 
         if(!is_numeric($result)) {
             app()->error('ERROR_SAVING_FILE');
         }
 
-        Log::info('saved "' . $model->pathAbsolute . '"');
+        Log::info('saved "' . $model->getAbsolutePath() . '"');
 
         // get updated file info after save
         clearstatcache();
-        return $model->getInfo();
+        return $model->getData()->formatJsonApi();
     }
 
     /**
@@ -457,17 +504,17 @@ class LocalApi implements ApiInterface
     public function actionReadFile()
     {
         $model = new ItemModel(Input::get('path'));
-        Log::info('reading file "' . $model->pathAbsolute . '"');
+        Log::info('reading file "' . $model->getAbsolutePath() . '"');
 
         $model->checkPath();
         $model->checkReadPermission();
         $model->checkRestrictions();
 
-        if($model->isDir) {
+        if($model->isDirectory()) {
             app()->error('FORBIDDEN_ACTION_DIR');
         }
 
-        $filesize = filesize($model->pathAbsolute);
+        $filesize = filesize($model->getAbsolutePath());
         $length = $filesize;
         $offset = 0;
 
@@ -503,12 +550,12 @@ class LocalApi implements ApiInterface
             header('Accept-Ranges: bytes');
         }
 
-        header('Content-Type: ' . mime_content_type($model->pathAbsolute));
+        header('Content-Type: ' . mime_content_type($model->getAbsolutePath()));
         header("Content-Transfer-Encoding: binary");
         header("Content-Length: " . $length);
-        header('Content-Disposition: inline; filename="' . basename($model->pathAbsolute) . '"');
+        header('Content-Disposition: inline; filename="' . basename($model->getAbsolutePath()) . '"');
 
-        $fp = fopen($model->pathAbsolute, 'r');
+        $fp = fopen($model->getAbsolutePath(), 'r');
         fseek($fp, $offset);
         $position = 0;
 
@@ -530,9 +577,9 @@ class LocalApi implements ApiInterface
     public function actionGetImage($thumbnail)
     {
         $modelImage = new ItemModel(Input::get('path'));
-        Log::info('loading image "' . $modelImage->pathAbsolute . '"');
+        Log::info('loading image "' . $modelImage->getAbsolutePath() . '"');
 
-        if ($modelImage->isDir) {
+        if ($modelImage->isDirectory()) {
             app()->error('FORBIDDEN_ACTION_DIR');
         }
 
@@ -542,7 +589,7 @@ class LocalApi implements ApiInterface
             $model = $modelImage->thumbnail();
 
             // generate thumbnail if it doesn't exist or caching is disabled
-            if (!$model->isExists || $this->storage->config('images.thumbnail.cache') === false) {
+            if (!$model->isExists() || $this->storage->config('images.thumbnail.cache') === false) {
                 $modelImage->createThumbnail();
             }
         } else {
@@ -552,14 +599,14 @@ class LocalApi implements ApiInterface
         $model->checkReadPermission();
         $model->checkRestrictions();
 
-        Log::info('loaded image "' . $model->pathAbsolute . '"');
+        Log::info('loaded image "' . $model->getAbsolutePath() . '"');
 
         header("Content-Type: image/octet-stream");
         header("Content-Transfer-Encoding: binary");
-        header("Content-Length: " . $this->storage->getRealFileSize($model->pathAbsolute));
-        header('Content-Disposition: inline; filename="' . basename($model->pathAbsolute) . '"');
+        header("Content-Length: " . $this->storage->getRealFileSize($model->getAbsolutePath()));
+        header('Content-Disposition: inline; filename="' . basename($model->getAbsolutePath()) . '"');
 
-        readfile($model->pathAbsolute);
+        readfile($model->getAbsolutePath());
         exit;
     }
 
@@ -569,30 +616,36 @@ class LocalApi implements ApiInterface
     public function actionDelete()
     {
         $model = new ItemModel(Input::get('path'));
-        Log::info('deleting "' . $model->pathAbsolute . '"');
+        Log::info('deleting "' . $model->getAbsolutePath() . '"');
 
         $model->checkPath();
         $model->checkWritePermission();
         $model->checkRestrictions();
 
         // check if not requesting root storage folder
-        if ($model->isDir && $model->isRoot()) {
+        if ($model->isDirectory() && $model->isRoot()) {
             app()->error('NOT_ALLOWED');
         }
 
-        $info = $model->getInfo();
         $modelThumb = $model->thumbnail();
 
         if ($model->remove()) {
-            Log::info('deleted "' . $model->pathAbsolute . '"');
+            Log::info('deleted "' . $model->getAbsolutePath() . '"');
 
             // delete thumbnail(s) if exist(s)
-            if ($modelThumb->isExists) {
+            if ($modelThumb->isExists()) {
                 $modelThumb->remove();
             }
         }
 
-        return $info;
+        // update items stats
+        $model->resetStats()->compileData();
+
+        // create event and dispatch it
+        $event = new ApiEvent\AfterItemDeleteEvent($model->getData());
+        dispatcher()->dispatch($event::NAME, $event);
+
+        return $model->getData()->formatJsonApi();
     }
 
     /**
@@ -601,25 +654,24 @@ class LocalApi implements ApiInterface
     public function actionDownload()
     {
         $model = new ItemModel(Input::get('path'));
-        Log::info('downloading "' . $model->pathAbsolute . '"');
+        Log::info('downloading "' . $model->getAbsolutePath() . '"');
 
         $model->checkPath();
         $model->checkReadPermission();
         $model->checkRestrictions();
 
         // check if not requesting root storage folder
-        // TODO: This restriction seems arbitration, it could be useful for business clients
-        if ($model->isDir && $model->isRoot()) {
+        if ($model->isDirectory() && $model->isRoot()) {
             app()->error('NOT_ALLOWED');
         }
 
         if (request()->isXmlHttpRequest()) {
-            return $model->getInfo();
+            return $model->getData()->formatJsonApi();
         } else {
-            $targetPath = $model->pathAbsolute;
+            $targetPath = $model->getAbsolutePath();
 
-            if ($model->isDir) {
-                $destinationPath = sys_get_temp_dir() . '/' . basename($model->pathAbsolute) . '.zip';
+            if ($model->isDirectory()) {
+                $destinationPath = sys_get_temp_dir() . '/' . basename($model->getAbsolutePath()) . '.zip';
 
                 // if Zip archive is created
                 if ($this->storage->zipFile($targetPath, $destinationPath, true)) {
@@ -656,6 +708,10 @@ class LocalApi implements ApiInterface
             } else {
                 readfile($targetPath);
             }
+
+            // create event and dispatch it
+            $event = new ApiEvent\AfterItemDownloadEvent($model->getData());
+            dispatcher()->dispatch($event::NAME, $event);
 
             Log::info('downloaded "' . $targetPath . '"');
             exit;
@@ -699,7 +755,7 @@ class LocalApi implements ApiInterface
 
         $modelSource = new ItemModel(Input::get('source'));
         $modelTarget = new ItemModel(Input::get('target'));
-        Log::info('extracting "' . $modelSource->pathAbsolute . '" to "' . $modelTarget->pathAbsolute . '"');
+        Log::info('extracting "' . $modelSource->getAbsolutePath() . '" to "' . $modelTarget->getAbsolutePath() . '"');
 
         $modelSource->checkPath();
         $modelTarget->checkPath();
@@ -708,25 +764,23 @@ class LocalApi implements ApiInterface
         $modelSource->checkRestrictions();
         $modelTarget->checkRestrictions();
 
-        if ($modelSource->isDir) {
+        if ($modelSource->isDirectory()) {
             app()->error('FORBIDDEN_ACTION_DIR');
         }
 
         $zip = new \ZipArchive();
-        if ($zip->open($modelSource->pathAbsolute) !== true) {
+        if ($zip->open($modelSource->getAbsolutePath()) !== true) {
             app()->error('ERROR_EXTRACTING_FILE');
         }
 
-        /**
-         * @var $rootLevelItems ItemModel[]
-         */
+        $fileNames = [];
         $rootLevelItems = [];
         $responseData = [];
 
         // make all the folders
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $filename = $zip->getNameIndex($i);
-            $model = new ItemModel($modelTarget->pathRelative . $filename);
+            $model = new ItemModel($modelTarget->getRelativePath() . $filename);
 
             if ($filename[strlen($filename) - 1] === "/" && $model->isUnrestricted()) {
                 $created = $this->storage->createFolder($model, $modelTarget);
@@ -735,8 +789,8 @@ class LocalApi implements ApiInterface
                     // extract root-level folders from archive manually
                     $rootName = substr($filename, 0, strpos($filename, '/') + 1);
                     if (!array_key_exists($rootName, $rootLevelItems)) {
-                        $rootModel = ($rootName === $filename) ? $model : new ItemModel($modelTarget->pathRelative . $rootName);
-                        $rootLevelItems[$rootName] = $rootModel;
+                        $rootItemModel = ($rootName === $filename) ? $model : new ItemModel($modelTarget->getRelativePath() . $rootName);
+                        $rootLevelItems[$rootName] = $rootItemModel;
                     }
                 }
             }
@@ -745,22 +799,30 @@ class LocalApi implements ApiInterface
         // unzip into the folders
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $filename = $zip->getNameIndex($i);
-            $model = new ItemModel($modelTarget->pathRelative . $filename);
+            $model = new ItemModel($modelTarget->getRelativePath() . $filename);
 
             if ($filename[strlen($filename) - 1] !== "/" && $model->isUnrestricted()) {
-                $copied = copy('zip://' . $modelSource->pathAbsolute . '#' . $filename, $model->pathAbsolute);
+                $copied = copy('zip://' . $modelSource->getAbsolutePath() . '#' . $filename, $model->getAbsolutePath());
 
-                if ($copied && strpos($filename, '/') === false) {
-                    $rootLevelItems[] = $model;
+                if ($copied) {
+                    $fileNames[] = $model->getAbsolutePath();
+                    if (strpos($filename, '/') === false) {
+                        $rootLevelItems[] = $model;
+                    }
                 }
             }
         }
 
         $zip->close();
 
-        foreach ($rootLevelItems as $model) {
-            $responseData[] = $model->getInfo();
+        foreach ($rootLevelItems as $model) { /* @var $model ItemModel */
+            // update items stats
+            $responseData[] = $model->resetStats()->getData()->formatJsonApi();
         }
+
+        // create event and dispatch it
+        $event = new ApiEvent\AfterFileExtractEvent($modelSource->getData(), $fileNames);
+        dispatcher()->dispatch($event::NAME, $event);
 
         return $responseData;
     }

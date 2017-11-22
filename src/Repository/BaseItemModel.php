@@ -16,50 +16,6 @@ use function RFM\app;
 
 class BaseItemModel
 {
-    const TYPE_FILE = 'file';
-    const TYPE_FOLDER = 'folder';
-
-    /**
-     * File item model template
-     *
-     * @var array
-     */
-    protected $fileModel = [
-        "id"    => '',
-        "type"  => self::TYPE_FILE,
-        "attributes" => [
-            'name'      => '',
-            'path'      => '',
-            'readable'  => 1,
-            'writable'  => 1,
-            'created'   => '',
-            'modified'  => '',
-            'timestamp' => '',
-            'height'    => 0,
-            'width'     => 0,
-            'size'      => 0,
-        ]
-    ];
-
-    /**
-     * Folder item model template
-     *
-     * @var array
-     */
-    protected $folderModel = [
-        "id"    => '',
-        "type"  => self::TYPE_FOLDER,
-        "attributes" => [
-            'name'      => '',
-            'path'      => '',
-            'readable'  => 1,
-            'writable'  => 1,
-            'created'   => '',
-            'modified'  => '',
-            'timestamp' => '',
-        ]
-    ];
-
     /**
      * @var StorageInterface
      */

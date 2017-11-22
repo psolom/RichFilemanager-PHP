@@ -34,7 +34,7 @@ class UploadHandler extends BaseUploadHandler
         $this->model = $this->options['model'];
         $this->storage = $this->options['storage'];
 
-        $this->options['upload_dir'] = $this->model->pathAbsolute;
+        $this->options['upload_dir'] = $this->model->getAbsolutePath();
         $this->options['param_name'] = 'files';
         $this->options['readfile_chunk_size'] = 10 * 1024 * 1024;
         $this->options['max_file_size'] = $this->storage->config('upload.fileSizeLimit');
@@ -60,7 +60,7 @@ class UploadHandler extends BaseUploadHandler
         // image thumbnail settings
         if($this->storage->config('images.thumbnail.enabled') === true) {
             $this->options['image_versions']['thumbnail'] = array(
-                'upload_dir' => $this->model->thumbnail()->pathAbsolute,
+                'upload_dir' => $this->model->thumbnail()->getAbsolutePath(),
                 'crop' => $this->storage->config('images.thumbnail.crop'),
                 'max_width' => $this->storage->config('images.thumbnail.maxWidth'),
                 'max_height' => $this->storage->config('images.thumbnail.maxHeight'),
@@ -117,13 +117,13 @@ class UploadHandler extends BaseUploadHandler
             $file->error = $this->get_error_message('post_max_size');
             return false;
         }
-        $model = new ItemModel($this->model->pathRelative . $file->name);
+        $model = new ItemModel($this->model->getRelativePath() . $file->name);
         if (!$model->isAllowedExtension()) {
             $file->error = $this->get_error_message('accept_file_types');
             return false;
         }
         if (!$model->isAllowedPattern()) {
-            $file->error = ['FORBIDDEN_NAME', [$model->pathRelative]];
+            $file->error = ['FORBIDDEN_NAME', [$model->getRelativePath()]];
             return false;
         }
         if ($uploaded_file && is_uploaded_file($uploaded_file)) {
@@ -205,7 +205,7 @@ class UploadHandler extends BaseUploadHandler
     protected function mkdir($upload_path)
     {
         $model = new ItemModel($this->storage->getRelativePath($upload_path));
-        if ($model->isDir && !$model->isExists) {
+        if ($model->isDirectory() && !$model->isExists()) {
             $this->storage->createFolder($model, $this->model);
         }
         return $model;
