@@ -15,6 +15,13 @@ namespace RFM\Repository;
 class BaseUploadHandler
 {
     /**
+     * Storage instance.
+     *
+     * @var StorageInterface
+     */
+    protected $storage;
+
+    /**
      * @var array
      */
     protected $options;
@@ -301,7 +308,7 @@ class BaseUploadHandler
                 clearstatcache();
             }
         }
-        return $this->fix_integer_overflow($this->real_filesize($file_path));
+        return $this->fix_integer_overflow($this->storage->getFileSize($file_path));
     }
 
     protected function is_valid_file_object($file_name) {
@@ -548,34 +555,6 @@ class BaseUploadHandler
             $index,
             $content_range
         );
-    }
-
-    // Based on https://github.com/jkuchar/BigFileTools project by Jan Kuchar
-    protected function real_filesize($path) {
-        // This should work for large files on 64bit platforms and for small files everywhere
-        $fp = fopen($path, "rb");
-        $flockResult = flock($fp, LOCK_SH);
-        $seekResult = fseek($fp, 0, SEEK_END);
-        $position = ftell($fp);
-        flock($fp, LOCK_UN);
-        fclose($fp);
-        if(!($flockResult === false || $seekResult !== 0 || $position === false)) {
-            return sprintf("%u", $position);
-        }
-        // Try to define file size via CURL if installed
-        if (function_exists("curl_init")) {
-            $ch = curl_init("file://" . rawurlencode($path));
-            curl_setopt($ch, CURLOPT_NOBODY, true);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_HEADER, true);
-            $data = curl_exec($ch);
-            curl_close($ch);
-            if ($data !== false && preg_match('/Content-Length: (\d+)/', $data, $matches)) {
-                return $matches[1];
-            }
-        }
-        // Use native function otherwise
-        return filesize($path);
     }
 
     protected function get_scaled_image_file_path($file_name, $version) {

@@ -7,10 +7,10 @@ use RFM\Factory\Factory;
 use RFM\Repository\BaseStorage;
 use RFM\Repository\BaseItemModel;
 use RFM\Repository\ItemData;
-use RFM\Repository\ItemInterface;
+use RFM\Repository\ItemModelInterface;
 use function RFM\app;
 
-class ItemModel extends BaseItemModel implements ItemInterface
+class ItemModel extends BaseItemModel implements ItemModelInterface
 {
     /**
      * @var Storage
@@ -221,7 +221,7 @@ class ItemModel extends BaseItemModel implements ItemInterface
 
         // get file size
         if (!$this->isDir && $data->isReadable) {
-            $data->size = $this->storage->getRealFileSize($this->pathAbsolute);
+            $data->size = $this->storage->getFileSize($this->pathAbsolute);
         }
 
         // handle image data
@@ -376,6 +376,16 @@ class ItemModel extends BaseItemModel implements ItemInterface
         $mime = mime_content_type($this->pathAbsolute);
 
         return $this->storage->isImageMimeType($mime);
+    }
+
+    /**
+     * Retrieve mime type of model item.
+     *
+     * @return string
+     */
+    public function getMimeType()
+    {
+        return mime_content_type($this->pathAbsolute);
     }
 
     /**

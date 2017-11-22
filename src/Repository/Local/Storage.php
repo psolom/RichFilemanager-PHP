@@ -402,6 +402,48 @@ class Storage extends BaseStorage implements StorageInterface
         return rmdir($targetPath);
 	}
 
+    /**
+     * Defines real size of file.
+     * Based on https://github.com/jkuchar/BigFileTools project by Jan Kuchar
+     *
+     * @param string $path - absolute path
+     * @return int|string
+     * @throws \Exception
+     */
+    public function getFileSize($path)
+    {
+        // This should work for large files on 64bit platforms and for small files everywhere
+        $fp = fopen($path, "rb");
+        if (!$fp) {
+            throw new \Exception("Cannot open specified file for reading.");
+        }
+        $flockResult = flock($fp, LOCK_SH);
+        $seekResult = fseek($fp, 0, SEEK_END);
+        $position = ftell($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+
+        if(!($flockResult === false || $seekResult !== 0 || $position === false)) {
+            return sprintf("%u", $position);
+        }
+
+        // Try to define file size via CURL if installed
+        if (function_exists("curl_init")) {
+            $ch = curl_init("file://" . rawurlencode($path));
+            curl_setopt($ch, CURLOPT_NOBODY, true);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HEADER, true);
+            $data = curl_exec($ch);
+            curl_close($ch);
+            if ($data !== false && preg_match('/Content-Length: (\d+)/', $data, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        // Use native function otherwise
+        return filesize($path);
+    }
+
 	/**
 	 * Return summary info for specified folder.
      *
@@ -435,52 +477,11 @@ class Storage extends BaseStorage implements StorageInterface
                     $this->getDirSummary($model->getRelativePath(), $result);
                 } else {
                     $result['files']++;
-                    $result['size'] += filesize($model->getAbsolutePath());
+                    $result['size'] += $this->getFileSize($model->getAbsolutePath());
                 }
             }
 		}
 
 		return $result;
 	}
-
-    /**
-     * Defines real size of file.
-     * Based on https://github.com/jkuchar/BigFileTools project by Jan Kuchar
-     *
-     * @param string $path - absolute path
-     * @return int|string
-     * @throws \Exception
-     */
-    public function getRealFileSize($path)
-    {
-        // This should work for large files on 64bit platforms and for small files everywhere
-        $fp = fopen($path, "rb");
-        if (!$fp) {
-            throw new \Exception("Cannot open specified file for reading.");
-        }
-        $flockResult = flock($fp, LOCK_SH);
-        $seekResult = fseek($fp, 0, SEEK_END);
-        $position = ftell($fp);
-        flock($fp, LOCK_UN);
-        fclose($fp);
-
-        if(!($flockResult === false || $seekResult !== 0 || $position === false)) {
-            return sprintf("%u", $position);
-        }
-
-        // Try to define file size via CURL if installed
-        if (function_exists("curl_init")) {
-            $ch = curl_init("file://" . rawurlencode($path));
-            curl_setopt($ch, CURLOPT_NOBODY, true);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_HEADER, true);
-            $data = curl_exec($ch);
-            curl_close($ch);
-            if ($data !== false && preg_match('/Content-Length: (\d+)/', $data, $matches)) {
-                return $matches[1];
-            }
-        }
-
-        return filesize($path);
-    }
 }

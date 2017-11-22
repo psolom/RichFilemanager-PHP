@@ -408,6 +408,17 @@ class Storage extends BaseStorage implements StorageInterface
         return !$this->isObjectExists($key);
     }
 
+    /**
+     * Defines size of S3 object.
+     *
+     * @param string $path
+     * @return int|string
+     */
+    public function getFileSize($path)
+    {
+        return filesize($path);
+    }
+
 	/**
 	 * Return summary info for specified folder.
      *
@@ -441,7 +452,7 @@ class Storage extends BaseStorage implements StorageInterface
             if ($model->hasReadPermission() && $model->isUnrestricted()) {
                 if (!$model->isDirectory()) {
                     $result['files']++;
-                    $result['size'] += filesize($model->getAbsolutePath());
+                    $result['size'] += $this->getFileSize($model->getAbsolutePath());
                 } else {
                     // stream wrapper opendir() lists only files
                 }

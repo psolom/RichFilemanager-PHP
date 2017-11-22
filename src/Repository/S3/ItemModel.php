@@ -7,11 +7,11 @@ use RFM\Factory\Factory;
 use RFM\Repository\BaseStorage;
 use RFM\Repository\BaseItemModel;
 use RFM\Repository\ItemData;
-use RFM\Repository\ItemInterface;
+use RFM\Repository\ItemModelInterface;
 use function RFM\app;
 use function RFM\mime_type_by_extension;
 
-class ItemModel extends BaseItemModel implements ItemInterface
+class ItemModel extends BaseItemModel implements ItemModelInterface
 {
     /**
      * @var Storage
@@ -238,7 +238,7 @@ class ItemModel extends BaseItemModel implements ItemInterface
 
         // get file size
         if (!$this->isDir && $data->isReadable) {
-            $data->size = filesize($this->pathAbsolute);
+            $data->size = $this->storage->getFileSize($this->pathAbsolute);
         }
 
         // handle image data
@@ -388,7 +388,7 @@ class ItemModel extends BaseItemModel implements ItemInterface
     }
 
     /**
-     * Retrieve mime type of S3 object.
+     * Retrieve mime type of model item.
      *
      * @return string
      */

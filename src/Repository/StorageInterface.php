@@ -57,4 +57,31 @@ interface StorageInterface
      * @return string
      */
     public function getRelativePath($path);
+
+    /**
+     * Create new folder.
+     *
+     * @param ItemModelInterface $target
+     * @param ItemModelInterface $prototype
+     * @param $options array
+     * @return bool
+     */
+    public function createFolder($target, $prototype, $options);
+
+    /**
+     * Defines size of file.
+     *
+     * @param string $path
+     * @return int|string
+     */
+    public function getFileSize($path);
+
+    /**
+     * Return summary info for specified folder.
+     *
+     * @param string $dir
+     * @param array $result
+     * @return array
+     */
+    public function getDirSummary($dir, &$result);
 }

@@ -514,14 +514,14 @@ class LocalApi implements ApiInterface
             app()->error('FORBIDDEN_ACTION_DIR');
         }
 
-        $filesize = filesize($model->getAbsolutePath());
-        $length = $filesize;
+        $fileSize = $this->storage->getFileSize($model->getAbsolutePath());
+        $length = $fileSize;
         $offset = 0;
 
         if(isset($_SERVER['HTTP_RANGE'])) {
             if(!preg_match('/bytes=(\d+)-(\d+)?/', $_SERVER['HTTP_RANGE'], $matches)) {
                 header('HTTP/1.1 416 Requested Range Not Satisfiable');
-                header('Content-Range: bytes */' . $filesize);
+                header('Content-Range: bytes */' . $fileSize);
                 exit;
             }
 
@@ -531,26 +531,26 @@ class LocalApi implements ApiInterface
                 $end = intval($matches[2]);
                 if($offset > $end) {
                     header('HTTP/1.1 416 Requested Range Not Satisfiable');
-                    header('Content-Range: bytes */' . $filesize);
+                    header('Content-Range: bytes */' . $fileSize);
                     exit;
                 }
                 $length = $end - $offset;
             } else {
-                $length = $filesize - $offset;
+                $length = $fileSize - $offset;
             }
 
-            $bytes_start = $offset;
-            $bytes_end = $offset + $length - 1;
+            $bytesStart = $offset;
+            $bytesEnd = $offset + $length - 1;
 
             header('HTTP/1.1 206 Partial Content');
             // A full-length file will indeed be "bytes 0-x/x+1", think of 0-indexed array counts
-            header('Content-Range: bytes ' . $bytes_start . '-' . $bytes_end . '/' . $filesize);
+            header('Content-Range: bytes ' . $bytesStart . '-' . $bytesEnd . '/' . $fileSize);
             // While playing media by direct link (not via FM) FireFox and IE doesn't allow seeking (rewind) it in player
             // This header can fix this behavior if to put it out of this condition, but it breaks PDF preview
             header('Accept-Ranges: bytes');
         }
 
-        header('Content-Type: ' . mime_content_type($model->getAbsolutePath()));
+        header('Content-Type: ' . $model->getMimeType());
         header("Content-Transfer-Encoding: binary");
         header("Content-Length: " . $length);
         header('Content-Disposition: inline; filename="' . basename($model->getAbsolutePath()) . '"');
@@ -603,7 +603,7 @@ class LocalApi implements ApiInterface
 
         header("Content-Type: image/octet-stream");
         header("Content-Transfer-Encoding: binary");
-        header("Content-Length: " . $this->storage->getRealFileSize($model->getAbsolutePath()));
+        header("Content-Length: " . $this->storage->getFileSize($model->getAbsolutePath()));
         header('Content-Disposition: inline; filename="' . basename($model->getAbsolutePath()) . '"');
 
         readfile($model->getAbsolutePath());
@@ -680,10 +680,11 @@ class LocalApi implements ApiInterface
                     app()->error('ERROR_CREATING_ZIP');
                 }
             }
-            $fileSize = $this->storage->getRealFileSize($targetPath);
+
+            $fileSize = $this->storage->getFileSize($targetPath);
 
             header('Content-Description: File Transfer');
-            header('Content-Type: ' . mime_content_type($targetPath));
+            header('Content-Type: ' . $model->getMimeType());
             header('Content-Disposition: attachment; filename="' . basename($targetPath) . '"');
             header('Content-Transfer-Encoding: binary');
             header('Content-Length: ' . $fileSize);

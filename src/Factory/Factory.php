@@ -10,7 +10,7 @@ class Factory
     /**
      * Return new item instance for image thumbnail.
      *
-     * @param \RFM\Repository\ItemInterface $imageModel
+     * @param \RFM\Repository\ItemModelInterface $imageModel
      * @return LocalItemModel|S3ItemModel
      */
     public function createThumbnailModel($imageModel)

@@ -307,7 +307,7 @@ class UploadHandler extends BaseUploadHandler
             // for s3 object path
             // you could use this approach only with AWS SDK version >= 3.18.0
             // @see https://github.com/aws/aws-sdk-php/issues/963 for details
-            return strval(filesize($file_path));
+            return strval($this->storage->getFileSize($file_path));
         } else {
             // for local path (thumbnails e.g.)
             return parent::get_file_size($file_path, $clear_stat_cache);

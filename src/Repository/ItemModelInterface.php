@@ -2,7 +2,7 @@
 
 namespace RFM\Repository;
 
-interface ItemInterface
+interface ItemModelInterface
 {
     /**
      * Get storage instance associated with model item.
@@ -83,6 +83,13 @@ interface ItemInterface
      * @return string
      */
     public function isImageFile();
+
+    /**
+     * Retrieve mime type of model item.
+     *
+     * @return string
+     */
+    public function getMimeType();
 
     /**
      * Check whether item path is valid by comparing paths.
