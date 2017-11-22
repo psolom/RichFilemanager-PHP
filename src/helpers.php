@@ -62,6 +62,16 @@ function logger()
     return app('logger');
 }
 
+/**
+ * Return dispatcher singleton instance
+ *
+ * @return \Symfony\Component\EventDispatcher\EventDispatcher
+ */
+function dispatcher()
+{
+    return app('dispatcher');
+}
+
 // https://gist.github.com/Erutan409/8e774dfb2b343fe78b14
 function mime_type_by_extension($file)
 {
