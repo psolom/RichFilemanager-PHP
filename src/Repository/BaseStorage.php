@@ -131,9 +131,6 @@ abstract class BaseStorage
             $string = preg_replace("/[^{$allow}_a-zA-Z0-9]/u", '', $string);
         }
 
-        // remove double underscore
-        $string = preg_replace('/[_]+/', '_', $string);
-
         return $string;
     }
 
