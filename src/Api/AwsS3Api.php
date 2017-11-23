@@ -647,6 +647,12 @@ class AwsS3Api implements ApiInterface
             if ($modelThumb->isExists()) {
                 $modelThumb->remove();
             }
+        } else {
+            if ($model->isDirectory()) {
+                app()->error('ERROR_DELETING_DIRECTORY', [$model->getRelativePath()]);
+            } else {
+                app()->error('ERROR_DELETING_FILE', [$model->getRelativePath()]);
+            }
         }
 
         // update items stats
