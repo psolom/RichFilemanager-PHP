@@ -15,7 +15,7 @@ use function RFM\config;
  *    @copyright    Authors
  */
 
-class BaseStorage
+abstract class BaseStorage
 {
     const STORAGE_S3_NAME = 's3';
     const STORAGE_LOCAL_NAME = 'local';
@@ -51,6 +51,12 @@ class BaseStorage
     public function setConfig($config)
     {
         app()->configure($this->getName(), $config);
+
+        // exclude image thumbnails folder from the output
+        if ($this->config('security.patterns.policy') === 'DISALLOW_LIST') {
+            $pattern = $this->buildPathPattern($this->config('images.thumbnail.dir'), true);
+            app('config')->push($this->getName() . '.security.patterns.restrictions', $pattern);
+        }
     }
 
     /**
@@ -59,6 +65,20 @@ class BaseStorage
     public function config($key = null, $default = null)
     {
         return config($this->getName() . ".{$key}", $default);
+    }
+
+    /**
+     * Turn a path into the pattern for 'security.patterns.restrictions' configuration option.
+     *
+     * @param string $path
+     * @param bool $isDir
+     * @return string
+     */
+    public function buildPathPattern($path, $isDir = false)
+    {
+        $path = '*/'. $path . ($isDir ? '/*' : '');
+
+        return $this->cleanPath($path);
     }
 
     /**
@@ -134,4 +154,12 @@ class BaseStorage
         ];
         return in_array($mime, $imagesMime);
     }
+
+    /**
+     * Clean path string to remove multiple slashes, etc.
+     *
+     * @param string $string
+     * @return string
+     */
+    abstract public function cleanPath($string);
 }

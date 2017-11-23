@@ -140,7 +140,6 @@ $config = [
                 "*/.htaccess",
                 "*/web.config",
                 // folders
-                "*/_thumbs/*",
                 "*/.CDN_ACCESS_LOGS/*",
             ],
         ],
