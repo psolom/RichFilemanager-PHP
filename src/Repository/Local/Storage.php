@@ -383,6 +383,7 @@ class Storage extends BaseStorage implements StorageInterface
         // delete a single file
         if (!is_dir($targetPath)) {
             unlink($targetPath);
+            return true;
         }
 
         // filed to read folder
@@ -398,6 +399,7 @@ class Storage extends BaseStorage implements StorageInterface
             $itemTarget = new ItemModel($target->getRelativePath() . '/' . $obj);
             $this->unlinkRecursive($itemTarget);
 		}
+
 		closedir($handle);
         return rmdir($targetPath);
 	}
