@@ -392,8 +392,10 @@ class Application extends Container {
             $error_object = [
                 'id' => 'server',
                 'code' => '500',
-                'message' => $label,
-                'arguments' => $arguments
+                'title' => $label,
+                'meta' => [
+                    'arguments' => $arguments,
+                ],
             ];
 
             echo json_encode([
