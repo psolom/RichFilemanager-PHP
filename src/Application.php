@@ -70,8 +70,8 @@ class Application extends Container {
             $authenticated = fm_authenticate();
 
             if ($authenticated !== true) {
-                $args = is_array($authenticated) ? $authenticated : [];
-                app()->error('AUTHORIZATION_REQUIRED', $args);
+                $data = is_array($authenticated) ? $authenticated : [];
+                app()->error('AUTHORIZATION_REQUIRED', [], $data);
             }
         }
     }
@@ -377,25 +377,23 @@ class Application extends Container {
 
     /**
      * Echo error message and terminate the application
+     *
      * @param string $label
      * @param array $arguments
+     * @param array $meta
      */
-    public function error($label, $arguments = [])
+    public function error($label, $arguments = [], $meta = [])
     {
-        $log_message = 'Error code: ' . $label;
-        if ($arguments) {
-            $log_message .= ', arguments: ' . json_encode($arguments);
-        }
-        logger()->log($log_message);
+        $meta['arguments'] = $arguments;
+        $message = 'Error code: ' . $label . ', meta: ' . json_encode($meta);
+        logger()->log($message);
 
         if(request()->isXmlHttpRequest()) {
             $error_object = [
                 'id' => 'server',
                 'code' => '500',
                 'title' => $label,
-                'meta' => [
-                    'arguments' => $arguments,
-                ],
+                'meta' => $meta,
             ];
 
             echo json_encode([
