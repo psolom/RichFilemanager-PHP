@@ -682,31 +682,27 @@ class AwsS3Api implements ApiInterface
             app()->error('NOT_ALLOWED');
         }
 
-        if (request()->isXmlHttpRequest()) {
-            return $model->getData()->formatJsonApi();
-        } else {
-            $targetPath = $model->getAbsolutePath();
-            $fileSize = $this->storage->getFileSize($targetPath);
+        $targetPath = $model->getAbsolutePath();
+        $fileSize = $this->storage->getFileSize($targetPath);
 
-            header('Content-Description: File Transfer');
-            header('Content-Type: ' . $model->getMimeType());
-            header('Content-Disposition: attachment; filename="' . basename($targetPath) . '"');
-            header('Content-Transfer-Encoding: binary');
-            header('Content-Length: ' . $fileSize);
-            // handle caching
-            header('Pragma: public');
-            header('Expires: 0');
-            header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+        header('Content-Description: File Transfer');
+        header('Content-Type: ' . $model->getMimeType());
+        header('Content-Disposition: attachment; filename="' . basename($targetPath) . '"');
+        header('Content-Transfer-Encoding: binary');
+        header('Content-Length: ' . $fileSize);
+        // handle caching
+        header('Pragma: public');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
 
-            readfile($targetPath);
+        readfile($targetPath);
 
-            // create event and dispatch it
-            $event = new ApiEvent\AfterItemDownloadEvent($model->getData());
-            dispatcher()->dispatch($event::NAME, $event);
+        // create event and dispatch it
+        $event = new ApiEvent\AfterItemDownloadEvent($model->getData());
+        dispatcher()->dispatch($event::NAME, $event);
 
-            Log::info('downloaded "' . $targetPath . '"');
-            exit;
-        }
+        Log::info('downloaded "' . $targetPath . '"');
+        exit;
     }
 
     /**

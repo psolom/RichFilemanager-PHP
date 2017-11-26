@@ -671,58 +671,54 @@ class LocalApi implements ApiInterface
             app()->error('NOT_ALLOWED');
         }
 
-        if (request()->isXmlHttpRequest()) {
-            return $model->getData()->formatJsonApi();
-        } else {
-            $targetPath = $model->getAbsolutePath();
+        $targetPath = $model->getAbsolutePath();
 
-            if ($model->isDirectory()) {
-                $destinationPath = sys_get_temp_dir() . '/' . basename($model->getAbsolutePath()) . '.zip';
+        if ($model->isDirectory()) {
+            $destinationPath = sys_get_temp_dir() . '/' . basename($model->getAbsolutePath()) . '.zip';
 
-                // if Zip archive is created
-                if ($this->storage->zipFile($targetPath, $destinationPath, true)) {
-                    $targetPath = $destinationPath;
-                } else {
-                    app()->error('ERROR_CREATING_ZIP');
-                }
-            }
-
-            $fileSize = $this->storage->getFileSize($targetPath);
-
-            header('Content-Description: File Transfer');
-            header('Content-Type: ' . $model->getMimeType());
-            header('Content-Disposition: attachment; filename="' . basename($targetPath) . '"');
-            header('Content-Transfer-Encoding: binary');
-            header('Content-Length: ' . $fileSize);
-            // handle caching
-            header('Pragma: public');
-            header('Expires: 0');
-            header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-
-            // read file by chunks to handle large files
-            // if you face an issue while downloading large files yet, try the following solution:
-            // https://github.com/servocoder/RichFilemanager/issues/78
-
-            $chunkSize = 5 * 1024 * 1024;
-            if ($chunkSize && $fileSize > $chunkSize) {
-                $handle = fopen($targetPath, 'rb');
-                while (!feof($handle)) {
-                    echo fread($handle, $chunkSize);
-                    @ob_flush();
-                    @flush();
-                }
-                fclose($handle);
+            // if Zip archive is created
+            if ($this->storage->zipFile($targetPath, $destinationPath, true)) {
+                $targetPath = $destinationPath;
             } else {
-                readfile($targetPath);
+                app()->error('ERROR_CREATING_ZIP');
             }
-
-            // create event and dispatch it
-            $event = new ApiEvent\AfterItemDownloadEvent($model->getData());
-            dispatcher()->dispatch($event::NAME, $event);
-
-            Log::info('downloaded "' . $targetPath . '"');
-            exit;
         }
+
+        $fileSize = $this->storage->getFileSize($targetPath);
+
+        header('Content-Description: File Transfer');
+        header('Content-Type: ' . $model->getMimeType());
+        header('Content-Disposition: attachment; filename="' . basename($targetPath) . '"');
+        header('Content-Transfer-Encoding: binary');
+        header('Content-Length: ' . $fileSize);
+        // handle caching
+        header('Pragma: public');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+
+        // read file by chunks to handle large files
+        // if you face an issue while downloading large files yet, try the following solution:
+        // https://github.com/servocoder/RichFilemanager/issues/78
+
+        $chunkSize = 5 * 1024 * 1024;
+        if ($chunkSize && $fileSize > $chunkSize) {
+            $handle = fopen($targetPath, 'rb');
+            while (!feof($handle)) {
+                echo fread($handle, $chunkSize);
+                @ob_flush();
+                @flush();
+            }
+            fclose($handle);
+        } else {
+            readfile($targetPath);
+        }
+
+        // create event and dispatch it
+        $event = new ApiEvent\AfterItemDownloadEvent($model->getData());
+        dispatcher()->dispatch($event::NAME, $event);
+
+        Log::info('downloaded "' . $targetPath . '"');
+        exit;
     }
 
     /**
