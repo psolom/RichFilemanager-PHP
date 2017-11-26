@@ -388,20 +388,16 @@ class Application extends Container {
         $message = 'Error code: ' . $label . ', meta: ' . json_encode($meta);
         logger()->log($message);
 
-        if(request()->isXmlHttpRequest()) {
-            $error_object = [
-                'id' => 'server',
-                'code' => '500',
-                'title' => $label,
-                'meta' => $meta,
-            ];
+        $error_object = [
+            'id' => 'server',
+            'code' => '500',
+            'title' => $label,
+            'meta' => $meta,
+        ];
 
-            echo json_encode([
-                'errors' => [$error_object],
-            ]);
-        } else {
-            echo "<h2>Server error: {$label}</h2>";
-        }
+        echo json_encode([
+            'errors' => [$error_object],
+        ]);
 
         exit;
     }
