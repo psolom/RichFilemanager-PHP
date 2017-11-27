@@ -12,25 +12,18 @@ interface ApiInterface
     public function actionInitiate();
 
     /**
-     * Return file data
+     * Return file or folder stats info
      *
      * @return array
      */
-    public function actionGetFile();
+    public function actionGetInfo();
 
     /**
-     * Open specified folder
+     * Read folder and list its content
      *
      * @return array
      */
-    public function actionGetFolder();
-
-    /**
-     * Open and edit file
-     *
-     * @return array
-     */
-    public function actionEditFile();
+    public function actionReadFolder();
 
     /**
      * Save data to file after editing

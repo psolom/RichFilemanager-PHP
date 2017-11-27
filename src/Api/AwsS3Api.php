@@ -66,7 +66,7 @@ class AwsS3Api implements ApiInterface
     /**
      * @inheritdoc
      */
-    public function actionGetFolder()
+    public function actionReadFolder()
     {
         $filesList = [];
         $filesPaths = [];
@@ -117,7 +117,7 @@ class AwsS3Api implements ApiInterface
     /**
      * @inheritdoc
      */
-    public function actionGetFile()
+    public function actionGetInfo()
     {
         $model = new ItemModel(Input::get('path'));
         Log::info('opening file "' . $model->getAbsolutePath() . '"');
@@ -128,10 +128,6 @@ class AwsS3Api implements ApiInterface
         $model->checkPath();
         $model->checkReadPermission();
         $model->checkRestrictions();
-
-        if ($model->isDirectory()) {
-            app()->error('FORBIDDEN_ACTION_DIR');
-        }
 
         return $model->getData()->formatJsonApi();
     }
@@ -456,33 +452,6 @@ class AwsS3Api implements ApiInterface
     /**
      * @inheritdoc
      */
-    public function actionEditFile()
-    {
-        $model = new ItemModel(Input::get('path'));
-        Log::info('opening file "' . $model->getAbsolutePath() . '"');
-
-        $model->checkPath();
-        $model->checkReadPermission();
-        $model->checkRestrictions();
-
-        if($model->isDirectory()) {
-            app()->error('FORBIDDEN_ACTION_DIR');
-        }
-
-        $content = file_get_contents($model->getAbsolutePath());
-
-        if($content === false) {
-            app()->error('ERROR_OPENING_FILE');
-        }
-
-        $item = $model->getData()->formatJsonApi();
-        $item['attributes']['content'] = $content;
-        return $item;
-    }
-
-    /**
-     * @inheritdoc
-     */
     public function actionSaveFile()
     {
         $model = new ItemModel(Input::get('path'));
@@ -510,7 +479,6 @@ class AwsS3Api implements ApiInterface
     }
 
     /**
-     * Seekable stream: http://stackoverflow.com/a/23046071/1789808
      * @inheritdoc
      */
     public function actionReadFile()
@@ -526,54 +494,9 @@ class AwsS3Api implements ApiInterface
             app()->error('FORBIDDEN_ACTION_DIR');
         }
 
-        $fileSize = $this->storage->getFileSize($model->getAbsolutePath());
-        $length = $fileSize;
-        $context = null;
+        header('Content-Disposition: inline');
 
-        if(isset($_SERVER['HTTP_RANGE'])) {
-            if(!preg_match('/bytes=(\d+)-(\d+)?/', $_SERVER['HTTP_RANGE'], $matches)) {
-                header('HTTP/1.1 416 Requested Range Not Satisfiable');
-                header('Content-Range: bytes */' . $fileSize);
-                exit;
-            }
-
-            $offset = intval($matches[1]);
-
-            if(isset($matches[2])) {
-                $end = intval($matches[2]);
-                if($offset > $end) {
-                    header('HTTP/1.1 416 Requested Range Not Satisfiable');
-                    header('Content-Range: bytes */' . $fileSize);
-                    exit;
-                }
-                $length = $end - $offset;
-            } else {
-                $length = $fileSize - $offset;
-            }
-
-            $bytesStart = $offset;
-            $bytesEnd = $offset + $length - 1;
-            $context = stream_context_create([
-                's3' => [
-                    'seekable' => true,
-                    'Range' => "bytes={$bytesStart}-{$bytesEnd}",
-                ]
-            ]);
-
-            header('HTTP/1.1 206 Partial Content');
-            // A full-length file will indeed be "bytes 0-x/x+1", think of 0-indexed array counts
-            header('Content-Range: bytes ' . $bytesStart . '-' . $bytesEnd . '/' . $fileSize);
-            // While playing media by direct link (not via FM) FireFox and IE doesn't allow seeking (rewind) it in player
-            // This header can fix this behavior if to put it out of this condition, but it breaks PDF preview
-            header('Accept-Ranges: bytes');
-        }
-
-        header('Content-Type: ' . $model->getMimeType());
-        header("Content-Transfer-Encoding: binary");
-        header("Content-Length: " . $length);
-        header('Content-Disposition: inline; filename="' . basename($model->getAbsolutePath()) . '"');
-
-        readfile($model->getAbsolutePath(), null, $context);
+        $this->storage->readItem($model);
         exit;
     }
 
@@ -605,14 +528,9 @@ class AwsS3Api implements ApiInterface
         $model->checkReadPermission();
         $model->checkRestrictions();
 
-        Log::info('loaded image "' . $model->getAbsolutePath() . '"');
+        header('Content-Disposition: inline');
 
-        header("Content-Type: image/octet-stream");
-        header("Content-Transfer-Encoding: binary");
-        header("Content-Length: " . $this->storage->getFileSize($model->getAbsolutePath()));
-        header('Content-Disposition: inline; filename="' . basename($model->getAbsolutePath()) . '"');
-
-        readfile($model->getAbsolutePath());
+        $this->storage->readItem($model);
         exit;
     }
 
@@ -683,19 +601,15 @@ class AwsS3Api implements ApiInterface
         }
 
         $targetPath = $model->getAbsolutePath();
-        $fileSize = $this->storage->getFileSize($targetPath);
 
         header('Content-Description: File Transfer');
-        header('Content-Type: ' . $model->getMimeType());
         header('Content-Disposition: attachment; filename="' . basename($targetPath) . '"');
-        header('Content-Transfer-Encoding: binary');
-        header('Content-Length: ' . $fileSize);
         // handle caching
         header('Pragma: public');
         header('Expires: 0');
         header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
 
-        readfile($targetPath);
+        $this->storage->readItem($model);
 
         // create event and dispatch it
         $event = new ApiEvent\AfterItemDownloadEvent($model->getData());

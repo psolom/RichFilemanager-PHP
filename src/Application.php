@@ -270,15 +270,15 @@ class Application extends Container {
                     $response = $this->api->actionInitiate();
                     break;
 
-                case 'getfile':
+                case 'getinfo':
                     if(request()->get('path')) {
-                        $response = $this->api->actionGetFile();
+                        $response = $this->api->actionGetInfo();
                     }
                     break;
 
-                case 'getfolder':
+                case 'readfolder':
                     if(request()->get('path')) {
-                        $response = $this->api->actionGetFolder();
+                        $response = $this->api->actionReadFolder();
                     }
                     break;
 
@@ -297,12 +297,6 @@ class Application extends Container {
                 case 'move':
                     if(request()->get('old') && request()->get('new')) {
                         $response = $this->api->actionMove();
-                    }
-                    break;
-
-                case 'editfile':
-                    if(request()->get('path')) {
-                        $response = $this->api->actionEditFile();
                     }
                     break;
 
@@ -399,6 +393,12 @@ class Application extends Container {
             'errors' => [$error_object],
         ]);
 
+        $contentType = (request()->get('mode') === 'download')
+            ? 'text/html; charset=UTF-8'
+            : 'application/json';
+
+        header('Content-Type: ' . $contentType);
+        header('HTTP/1.1 500 Internal Server Error');
         exit;
     }
 

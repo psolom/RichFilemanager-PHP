@@ -409,6 +409,65 @@ class Storage extends BaseStorage implements StorageInterface
     }
 
     /**
+     * Read item and write it to the output buffer.
+     *
+     * @param ItemModel $model
+     */
+    public function readItem($model)
+    {
+        $path = $model->getAbsolutePath();
+        $handle = fopen($path, 'rb');
+        $fileSize = $this->getFileSize($path);
+        $bytesRead = $fileSize;
+        $context = null;
+
+        // handle HTTP RANGE for stream files (audio/video)
+        if(isset($_SERVER['HTTP_RANGE'])) {
+            if(!preg_match('/bytes=(\d+)-(\d+)?/', $_SERVER['HTTP_RANGE'], $matches)) {
+                header('HTTP/1.1 416 Requested Range Not Satisfiable');
+                header('Content-Range: bytes */' . $fileSize);
+                exit;
+            }
+
+            $offset = intval($matches[1]);
+
+            if(isset($matches[2])) {
+                $end = intval($matches[2]);
+                if($offset > $end) {
+                    header('HTTP/1.1 416 Requested Range Not Satisfiable');
+                    header('Content-Range: bytes */' . $fileSize);
+                    exit;
+                }
+                $bytesRead = $end - $offset;
+            } else {
+                $bytesRead = $fileSize - $offset;
+            }
+
+            $bytesStart = $offset;
+            $bytesEnd = $offset + $bytesRead - 1;
+            $context = stream_context_create([
+                's3' => [
+                    'seekable' => true,
+                    'Range' => "bytes={$bytesStart}-{$bytesEnd}",
+                ]
+            ]);
+
+            header('HTTP/1.1 206 Partial Content');
+            // A full-length file will indeed be "bytes 0-x/x+1", think of 0-indexed array counts
+            header('Content-Range: bytes ' . $bytesStart . '-' . $bytesEnd . '/' . $fileSize);
+            // While playing media by direct link (not via FM) FireFox and IE doesn't allow seeking (rewind) it in player
+            // This header can fix this behavior if to put it out of this condition, but it breaks PDF preview
+            header('Accept-Ranges: bytes');
+        }
+
+        header('Content-Type: ' . $model->getMimeType());
+        header('Content-Transfer-Encoding: binary');
+        header('Content-Length: ' . $bytesRead);
+
+        readfile($model->getAbsolutePath(), null, $context);
+    }
+
+    /**
      * Defines size of S3 object.
      *
      * @param string $path
