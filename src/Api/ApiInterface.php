@@ -26,6 +26,13 @@ interface ApiInterface
     public function actionReadFolder();
 
     /**
+     * Look for files and/or folders that match search string
+     *
+     * @return array
+     */
+    public function actionSearch();
+
+    /**
      * Save data to file after editing
      */
     public function actionSaveFile();

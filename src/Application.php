@@ -282,6 +282,12 @@ class Application extends Container {
                     }
                     break;
 
+                case 'search':
+                    if(request()->get('path') && request()->get('string')) {
+                        $response = $this->api->actionSearch();
+                    }
+                    break;
+
                 case 'rename':
                     if(request()->get('old') && request()->get('new')) {
                         $response = $this->api->actionRename();
