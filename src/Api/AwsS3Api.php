@@ -117,6 +117,12 @@ class AwsS3Api implements ApiInterface
     /**
      * @inheritdoc
      */
+    public function actionSearch()
+    {}
+
+    /**
+     * @inheritdoc
+     */
     public function actionGetInfo()
     {
         $model = new ItemModel(Input::get('path'));
