@@ -118,7 +118,48 @@ class AwsS3Api implements ApiInterface
      * @inheritdoc
      */
     public function actionSearch()
-    {}
+    {
+        $searchString = Input::get('string');
+        $model = new ItemModel(Input::get('path'));
+        Log::info('search for "' . $searchString . '" in "' . $model->getAbsolutePath() .'" folder');
+
+        $model->checkPath();
+        $model->checkReadPermission();
+        $model->checkRestrictions();
+
+        $filesPaths = [];
+        $responseData = [];
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($model->getAbsolutePath()),
+            \RecursiveIteratorIterator::SELF_FIRST,
+            \RecursiveIteratorIterator::CATCH_GET_CHILD
+        );
+
+        foreach ($iterator as $spl) {
+            $filename = $spl->getFilename();
+            $pathname = $spl->getPathname();
+
+            // case insensitive comparison
+            if (starts_with(mb_strtolower($filename), mb_strtolower($searchString))) {
+                // directory path must end with slash
+                $pathname .= $spl->isDir() ? '/' : '';
+
+                $relativePath = $this->storage->subtractPath($pathname, $this->storage->getRoot());
+                $item = new ItemModel($relativePath);
+                if ($item->isUnrestricted()) {
+                    $filesPaths[] = $item->getAbsolutePath();
+                    $responseData[] = $item->getData()->formatJsonApi();
+                }
+            }
+        }
+
+//        // create event and dispatch it
+//        $event = new ApiEvent\AfterFolderReadEvent($model->getData(), $filesPaths);
+//        dispatcher()->dispatch($event::NAME, $event);
+//
+        return $responseData;
+    }
 
     /**
      * @inheritdoc
