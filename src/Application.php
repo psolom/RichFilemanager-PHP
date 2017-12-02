@@ -285,7 +285,7 @@ class Application extends Container {
 
                 case 'search':
                     if(request()->get('path') && request()->get('string')) {
-                        $response = $this->api->actionSearch();
+                        $response = $this->api->actionSeekFolder();
                     }
                     break;
 

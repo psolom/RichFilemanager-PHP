@@ -30,7 +30,7 @@ interface ApiInterface
      *
      * @return array
      */
-    public function actionSearch();
+    public function actionSeekFolder();
 
     /**
      * Save data to file after editing

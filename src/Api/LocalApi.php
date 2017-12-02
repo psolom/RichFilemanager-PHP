@@ -115,7 +115,7 @@ class LocalApi implements ApiInterface
     /**
      * @inheritdoc
      */
-    public function actionSearch()
+    public function actionSeekFolder()
     {
         $searchString = Input::get('string');
         $model = new ItemModel(Input::get('path'));
