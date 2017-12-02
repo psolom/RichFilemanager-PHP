@@ -119,7 +119,7 @@ class LocalApi implements ApiInterface
     {
         $searchString = Input::get('string');
         $model = new ItemModel(Input::get('path'));
-        Log::info('search for "' . $searchString . '" in "' . $model->getAbsolutePath() .'" folder');
+        Log::info('search for "' . $searchString . '" in "' . $model->getAbsolutePath() . '" folder');
 
         $model->checkPath();
         $model->checkReadPermission();
@@ -154,10 +154,10 @@ class LocalApi implements ApiInterface
             }
         }
 
-//        // create event and dispatch it
-//        $event = new ApiEvent\AfterFolderReadEvent($model->getData(), $filesPaths);
-//        dispatcher()->dispatch($event::NAME, $event);
-//
+        // create event and dispatch it
+        $event = new ApiEvent\AfterFolderSeekEvent($model->getData(), $searchString, $filesPaths);
+        dispatcher()->dispatch($event::NAME, $event);
+
         return $responseData;
     }
 
