@@ -283,7 +283,7 @@ class Application extends Container {
                     }
                     break;
 
-                case 'search':
+                case 'seekfolder':
                     if(request()->get('path') && request()->get('string')) {
                         $response = $this->api->actionSeekFolder();
                     }
