@@ -45,9 +45,6 @@ class ItemData
      */
     protected function getJsonFileTemplate()
     {
-        // PHP cannot get create timestamp
-        $dateFormatted = $this->formatDate($this->timeModified);
-
         return [
             "id"    => $this->pathRelative,
             "type"  => self::TYPE_FILE,
@@ -56,9 +53,8 @@ class ItemData
                 'path'      => $this->pathDynamic,
                 'readable'  => (int)$this->isReadable,
                 'writable'  => (int)$this->isWritable,
-                'created'   => $dateFormatted,
-                'modified'  => $dateFormatted,
-                'timestamp' => $this->timeModified,
+                'created'   => $this->timeCreated,
+                'modified'  => $this->timeModified,
                 'size'      => $this->size,
                 'width'     => isset($this->imageData['width']) ? $this->imageData['width'] : 0,
                 'height'    => isset($this->imageData['height']) ? $this->imageData['height'] : 0,
@@ -73,9 +69,6 @@ class ItemData
      */
     protected function getJsonFolderTemplate()
     {
-        // PHP cannot get create timestamp
-        $dateFormatted = $this->formatDate($this->timeModified);
-
         return [
             "id"    => $this->pathRelative,
             "type"  => self::TYPE_FOLDER,
@@ -84,23 +77,9 @@ class ItemData
                 'path'      => $this->pathDynamic,
                 'readable'  => (int)$this->isReadable,
                 'writable'  => (int)$this->isWritable,
-                'created'   => $dateFormatted,
-                'modified'  => $dateFormatted,
-                'timestamp' => $this->timeModified,
+                'created'   => $this->timeCreated,
+                'modified'  => $this->timeModified,
             ]
         ];
-    }
-
-    /**
-     * Format timestamp string.
-     *
-     * @param integer $timestamp
-     * @return string
-     */
-    public function formatDate($timestamp)
-    {
-        $storage = app()->getStorage(BaseStorage::STORAGE_LOCAL_NAME);
-
-        return date($storage->config('options.dateFormat'), $timestamp);
     }
 }
