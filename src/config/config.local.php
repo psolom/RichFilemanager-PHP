@@ -40,10 +40,6 @@ $config = [
          */
         "fileRoot" => false,
         /**
-         * Format of the date to display. See http://www.php.net/manual/en/function.date.php
-         */
-        "dateFormat" => "d M Y H:i",
-        /**
          * The maximum allowed root folder total size (in Bytes). If set to "false", no size limitations applied.
          */
         "fileRootSizeLimit" => false,
