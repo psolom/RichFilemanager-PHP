@@ -721,7 +721,7 @@ class LocalApi implements ApiInterface
         $rootLevelItems = [];
         $responseData = [];
 
-        // make all the folders
+        // make all the folders first
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $filename = $zip->getNameIndex($i);
             $model = new ItemModel($modelTarget->getRelativePath() . $filename);
@@ -740,12 +740,12 @@ class LocalApi implements ApiInterface
             }
         }
 
-        // unzip into the folders
+        // unzip files into the created folders
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $filename = $zip->getNameIndex($i);
             $model = new ItemModel($modelTarget->getRelativePath() . $filename);
 
-            if ($model->isDirectory() && $model->isUnrestricted()) {
+            if (!$model->isDirectory() && $model->isUnrestricted()) {
                 $copied = copy('zip://' . $modelSource->getAbsolutePath() . '#' . $filename, $model->getAbsolutePath());
 
                 if ($copied) {
