@@ -400,11 +400,7 @@ class Application extends Container {
             'errors' => [$error_object],
         ]);
 
-        $contentType = (request()->get('mode') === 'download')
-            ? 'text/html; charset=UTF-8'
-            : 'application/json';
-
-        header('Content-Type: ' . $contentType);
+        header('Content-Type: application/json');
         header('HTTP/1.1 500 Internal Server Error');
         exit;
     }
