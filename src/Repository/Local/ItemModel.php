@@ -206,14 +206,14 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
         $data->pathDynamic = $this->getDynamicPath();
         $data->isDirectory = $this->isDir;
         $data->isExists = $this->isExists;
-        $data->isImage = $this->isImageFile();
         $data->isRoot = $this->isRoot();
-        $data->timeModified = filemtime($this->pathAbsolute);
+        $data->isImage = $this->isImageFile();
+        $data->timeModified = $this->isExists ? filemtime($this->pathAbsolute) : null;
         $data->timeCreated = $data->timeModified;
 
         // check file permissions
-        $data->isReadable = $this->isExists ? $this->hasReadPermission() : false;
-        $data->isWritable = $this->isExists ? $this->hasWritePermission() : false;
+        $data->isReadable = $this->hasReadPermission();
+        $data->isWritable = $this->hasWritePermission();
 
         // fetch file info
         $pathInfo = pathinfo($this->pathAbsolute);
@@ -373,6 +373,10 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
      */
     public function isImageFile()
     {
+        if ($this->isDir || !$this->isExists) {
+            return false;
+        };
+
         $mime = mime_content_type($this->pathAbsolute);
 
         return $this->storage->isImageMimeType($mime);
@@ -425,7 +429,7 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
         }
 
         // check that the closest existent folder is writable
-        if ($modelExistent->isExists() && !$modelExistent->hasWritePermission()) {
+        if (!$modelExistent->hasWritePermission()) {
             return;
         }
 
@@ -542,6 +546,10 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
      */
     public function hasReadPermission()
     {
+        if (!$this->isExists) {
+            return false;
+        }
+
         // Check system permission (O.S./filesystem/NAS)
         if ($this->storage->hasSystemReadPermission($this->pathAbsolute) === false) {
             return false;
@@ -563,6 +571,10 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
      */
     public function hasWritePermission()
     {
+        if (!$this->isExists) {
+            return false;
+        }
+
         // Check the global `readOnly` config flag:
         if ($this->storage->config('security.readOnly') !== false) {
             return false;
