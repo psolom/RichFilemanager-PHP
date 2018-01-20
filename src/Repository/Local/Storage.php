@@ -408,11 +408,10 @@ class Storage extends BaseStorage implements StorageInterface
      * Read item and write it to the output buffer.
      * Seekable stream: http://stackoverflow.com/a/23046071/1789808
      *
-     * @param ItemModel $model
+     * @param string $path - absolute path
      */
-    public function readItem($model)
+    public function readFile($path)
     {
-        $path = $model->getAbsolutePath();
         $handle = fopen($path, 'rb');
         $fileSize = $this->getFileSize($path);
         $bytesRead = $fileSize;
@@ -451,7 +450,7 @@ class Storage extends BaseStorage implements StorageInterface
             header('Accept-Ranges: bytes');
         }
 
-        header('Content-Type: ' . $model->getMimeType());
+        header('Content-Type: ' . $this->getMimeType($path));
         header('Content-Transfer-Encoding: binary');
         header('Content-Length: ' . $bytesRead);
 
@@ -465,6 +464,17 @@ class Storage extends BaseStorage implements StorageInterface
 
             $position += $chunk;
         }
+    }
+
+    /**
+     * Retrieve mime type of file.
+     *
+     * @param string $path - absolute or relative path
+     * @return string
+     */
+    public function getMimeType($path)
+    {
+        return mime_content_type($path);
     }
 
     /**

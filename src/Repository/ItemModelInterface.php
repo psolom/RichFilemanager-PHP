@@ -85,13 +85,6 @@ interface ItemModelInterface
     public function isImageFile();
 
     /**
-     * Retrieve mime type of model item.
-     *
-     * @return string
-     */
-    public function getMimeType();
-
-    /**
      * Check whether item path is valid by comparing paths.
      *
      * @return bool

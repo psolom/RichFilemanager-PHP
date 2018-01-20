@@ -1094,25 +1094,21 @@ class BaseUploadHandler
 
             $append_file = $content_range && is_file($file->path) &&
                 $file->size > $this->get_file_size($file->path);
+
             if ($uploaded_file && is_uploaded_file($uploaded_file)) {
                 // multipart/formdata uploads (POST method uploads)
-                if ($append_file) {
-                    file_put_contents(
-                        $file->path,
-                        fopen($uploaded_file, 'r'),
-                        FILE_APPEND
-                    );
-                } else {
-                    move_uploaded_file($uploaded_file, $file->path);
-                }
+                $filename = $uploaded_file;
             } else {
-                // Non-multipart uploads (PUT method support)
-                file_put_contents(
-                    $file->path,
-                    fopen($this->options['input_stream'], 'r'),
-                    $append_file ? FILE_APPEND : 0
-                );
+                // non-multipart uploads (PUT method support)
+                $filename = $this->options['input_stream'];
             }
+
+            file_put_contents(
+                $file->path,
+                fopen($filename, 'r'),
+                $append_file ? FILE_APPEND : 0
+            );
+
             $file_size = $this->get_file_size($file->path, $append_file);
             if ($file_size === $file->size) {
                 $file->url = $this->get_download_url($file->name);

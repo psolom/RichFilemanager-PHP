@@ -533,7 +533,7 @@ class LocalApi implements ApiInterface
 
         header('Content-Disposition: inline');
 
-        $this->storage->readItem($model);
+        $this->storage->readFile($model->getAbsolutePath());
         exit;
     }
 
@@ -567,7 +567,7 @@ class LocalApi implements ApiInterface
 
         header('Content-Disposition: inline');
 
-        $this->storage->readItem($model);
+        $this->storage->readFile($model->getAbsolutePath());
         exit;
     }
 
@@ -652,7 +652,7 @@ class LocalApi implements ApiInterface
         header('Expires: 0');
         header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
 
-        $this->storage->readItem($model);
+        $this->storage->readFile($targetPath);
 
         // create event and dispatch it
         $event = new ApiEvent\AfterItemDownloadEvent($model->getData());

@@ -69,6 +69,14 @@ interface StorageInterface
     public function createFolder($target, $prototype, $options);
 
     /**
+     * Retrieve mime type of file.
+     *
+     * @param string $path - absolute or relative path
+     * @return string
+     */
+    public function getMimeType($path);
+
+    /**
      * Defines size of file.
      *
      * @param string $path

@@ -377,19 +377,9 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
             return false;
         };
 
-        $mime = mime_content_type($this->pathAbsolute);
+        $mime = $this->storage->getMimeType($this->pathAbsolute);
 
         return $this->storage->isImageMimeType($mime);
-    }
-
-    /**
-     * Retrieve mime type of model item.
-     *
-     * @return string
-     */
-    public function getMimeType()
-    {
-        return mime_content_type($this->pathAbsolute);
     }
 
     /**

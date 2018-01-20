@@ -5,6 +5,7 @@ namespace RFM\Repository\S3;
 use RFM\Facade\Log;
 use RFM\Repository\BaseStorage;
 use RFM\Repository\StorageInterface;
+use function RFM\mime_type_by_extension;
 
 /**
  *	AWS S3 storage class.
@@ -411,12 +412,10 @@ class Storage extends BaseStorage implements StorageInterface
     /**
      * Read item and write it to the output buffer.
      *
-     * @param ItemModel $model
+     * @param string $path - absolute path
      */
-    public function readItem($model)
+    public function readFile($path)
     {
-        $path = $model->getAbsolutePath();
-        $handle = fopen($path, 'rb');
         $fileSize = $this->getFileSize($path);
         $bytesRead = $fileSize;
         $context = null;
@@ -460,17 +459,36 @@ class Storage extends BaseStorage implements StorageInterface
             header('Accept-Ranges: bytes');
         }
 
-        header('Content-Type: ' . $model->getMimeType());
+        header('Content-Type: ' . $this->getMimeType($path));
         header('Content-Transfer-Encoding: binary');
         header('Content-Length: ' . $bytesRead);
 
-        readfile($model->getAbsolutePath(), null, $context);
+        readfile($path, null, $context);
+    }
+
+    /**
+     * Retrieve mime type of S3 object.
+     *
+     * @param string $path - absolute or relative path
+     * @return string
+     */
+    public function getMimeType($path)
+    {
+        // It's not possible to get mime type with "mime_content_type" function.
+        // See the discussion: https://github.com/aws/aws-sdk-php/issues/982
+        // The workaround is to retrieve type from Head request, see example below.
+        // However defining mime type based on file extension works well and covers most cases.
+
+        //$meta = $this->getMetaData($key);
+        //$type = $meta['content-type'];
+
+        return mime_type_by_extension($path);
     }
 
     /**
      * Defines size of S3 object.
      *
-     * @param string $path
+     * @param string $path - absolute path
      * @return int|string
      */
     public function getFileSize($path)

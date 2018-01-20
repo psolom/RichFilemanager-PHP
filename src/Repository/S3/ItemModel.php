@@ -9,7 +9,6 @@ use RFM\Repository\BaseItemModel;
 use RFM\Repository\ItemData;
 use RFM\Repository\ItemModelInterface;
 use function RFM\app;
-use function RFM\mime_type_by_extension;
 
 class ItemModel extends BaseItemModel implements ItemModelInterface
 {
@@ -386,27 +385,9 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
             return false;
         };
 
-        $mime = mime_type_by_extension($this->pathAbsolute);
+        $mime = $this->storage->getMimeType($this->pathAbsolute);
 
         return $this->storage->isImageMimeType($mime);
-    }
-
-    /**
-     * Retrieve mime type of model item.
-     *
-     * @return string
-     */
-    public function getMimeType()
-    {
-        $meta = $this->storage->getMetaData($this->getDynamicPath());
-        $type = $meta['content-type'];
-        $parts = explode('/', $type);
-
-        // try to define mime type based on file extension if default "octet-stream" is obtained
-        if((end($parts) === 'octet-stream')) {
-            $type = mime_type_by_extension($this->pathRelative);
-        }
-        return $type;
     }
 
     /**

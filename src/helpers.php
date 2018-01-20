@@ -777,11 +777,12 @@ function mime_type_by_extension($file)
         "zir"			=>	"application/vnd.zul",
         "zmm"			=>	"application/vnd.handheld-entertainment+xml"
     );
+
     $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
     if (isset($mime_type[$extension])) {
         return $mime_type[$extension];
     } else {
-        return null;
+        return 'application/octet-stream';
     }
 }
 
@@ -800,12 +801,8 @@ if (!function_exists('mime_content_type')) {
             finfo_close($finfo);
             return $mime;
         }
+
         // define based on file extension
-        $mime = mime_type_by_extension($filename);
-        if ($mime) {
-            return $mime;
-        } else {
-            return 'application/octet-stream';
-        }
+        return mime_type_by_extension($filename);
     }
 }

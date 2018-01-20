@@ -3,7 +3,6 @@
 namespace RFM\Repository\S3;
 
 use RFM\Repository\BaseUploadHandler;
-use function RFM\mime_type_by_extension;
 
 class UploadHandler extends BaseUploadHandler
 {
@@ -242,35 +241,30 @@ class UploadHandler extends BaseUploadHandler
 
             $append_file = $content_range && is_file($file->path) &&
                 $file->size > $this->get_file_size($file->path);
+
             if ($uploaded_file && is_uploaded_file($uploaded_file)) {
                 // multipart/formdata uploads (POST method uploads)
-                file_put_contents(
-                    $file->path,
-                    fopen($uploaded_file, 'r'),
-                    $append_file ? FILE_APPEND : 0,
-                    stream_context_create([
-                        's3' => array_merge($acl_params, [
-                            // it's possible to define mime type only for the first chunk of a file, but each consecutive
-                            // chunk that appended overrides object's ContentType to the S3 default "binary/octet-stream".
-                            // The only solutions is to define mime type based on file extension
-                            'ContentType' => mime_type_by_extension($name),
-                        ]),
-                    ])
-                );
+                $filename = $uploaded_file;
             } else {
-                // Non-multipart uploads (PUT method support)
-                file_put_contents(
-                    $file->path,
-                    fopen($this->options['input_stream'], 'r'),
-                    $append_file ? FILE_APPEND : 0,
-                    stream_context_create([
-                        's3' => array_merge($acl_params, [
-                            // define mime type of stream content
-                            'ContentType' => mime_content_type($uploaded_file),
-                        ]),
-                    ])
-                );
+                // non-multipart uploads (PUT method support)
+                $filename = $this->options['input_stream'];
             }
+
+            file_put_contents(
+                $file->path,
+                fopen($filename, 'r'),
+                $append_file ? FILE_APPEND : 0,
+                stream_context_create([
+                    's3' => array_merge($acl_params, [
+                        // multipart upload note:
+                        // it's possible to define mime type only for the first chunk of a file, but each consecutive
+                        // chunk that appended overrides object's ContentType to the S3 default "binary/octet-stream".
+                        // The only solutions is to define mime type based on file extension
+                        'ContentType' => $this->storage->getMimeType($name),
+                    ]),
+                ])
+            );
+
             $file_size = $this->get_file_size($file->path, $append_file);
             if ($file_size === $file->size) {
                 $file->url = $this->get_download_url($file->name);
