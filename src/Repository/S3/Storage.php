@@ -305,7 +305,7 @@ class Storage extends BaseStorage implements StorageInterface
     {
         $context = stream_context_create([
             's3' => array_merge($source->getAclParams(), [
-                'ServerSideEncryption' => $this->encryption,
+                'ServerSideEncryption' => $this->s3->encryption,
             ]),
         ]);
 
