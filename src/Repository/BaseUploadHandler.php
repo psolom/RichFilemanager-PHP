@@ -562,7 +562,7 @@ class BaseUploadHandler
         if (!empty($version)) {
             $version_dir = $this->get_upload_path(null, $version);
             $this->mkdir($version_dir);
-            $new_file_path = $version_dir.'/'.$file_name;
+            $new_file_path = rtrim($version_dir, '/').'/'.$file_name;
         } else {
             $new_file_path = $file_path;
         }
