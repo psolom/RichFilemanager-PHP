@@ -629,8 +629,13 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
      */
     public function checkPath()
     {
-        if (!$this->isExists || !$this->isValidPath()) {
+        if (!$this->isExists) {
             $langKey = $this->isDir ? 'DIRECTORY_NOT_EXIST' : 'FILE_DOES_NOT_EXIST';
+            app()->error($langKey, [$this->pathRelative]);
+        }
+
+        if (!$this->isValidPath()) {
+            $langKey = $this->isDir ? 'INVALID_DIRECTORY_PATH' : 'INVALID_FILE_PATH';
             app()->error($langKey, [$this->pathRelative]);
         }
     }

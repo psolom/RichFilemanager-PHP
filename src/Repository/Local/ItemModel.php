@@ -178,6 +178,16 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
     }
 
     /**
+     * Validate whether item is symlink.
+     *
+     * @return bool
+     */
+    public function isSymlink()
+    {
+        return is_link(rtrim($this->pathAbsolute, '/\\'));
+    }
+
+    /**
      * Define if file or folder exists.
      */
     protected function setIsExists()
@@ -591,22 +601,35 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
      */
     public function isValidPath()
     {
-        $rootPath = $this->storage->getRoot();
-        $rpSubstr = substr(realpath($this->pathAbsolute) . DS, 0, strlen(realpath($rootPath))) . DS;
-        $rpFiles = realpath($rootPath) . DS;
+        $allowedPaths = [];
 
-        // handle better symlinks & network path
-        $pattern = ['/\\\\+/', '/\/+/'];
-        $replacement = ['\\\\', '/'];
-        $rpSubstr = preg_replace($pattern, $replacement, $rpSubstr);
-        $rpFiles = preg_replace($pattern, $replacement, $rpFiles);
-        $match = ($rpSubstr === $rpFiles);
+        // test symlinks
+        if ($this->isSymlink()) {
+            if ($this->storage->config('security.symlinks.allowAll')) {
+                return true;
+            }
 
-        if (!$match) {
-            Log::info('Invalid path "' . $this->pathAbsolute . '"');
-            Log::info('real path: "' . $rpSubstr . '"');
-            Log::info('path to files: "' . $rpFiles . '"');
+            $symlinkAllowed = $this->storage->config('security.symlinks.allowPaths');
+            if (is_array($symlinkAllowed) && count($symlinkAllowed) > 0) {
+                $allowedPaths = $symlinkAllowed;
+            }
         }
+
+        $realPathItem = realpath($this->pathAbsolute);
+        $realPathRoot = realpath($this->storage->getRoot());
+        array_unshift($allowedPaths, $realPathRoot);
+
+        // clean up paths for more accurate comparison
+        $allowedPaths = array_map([$this->storage, 'cleanPath'], $allowedPaths);
+
+        $match = starts_with($realPathItem, $allowedPaths);
+        if (!$match) {
+            Log::info('Item path validation FAILED');
+            Log::info('Absolute path "' . $this->pathAbsolute . '"');
+            Log::info('Real path: "' . $realPathItem . '"');
+            Log::info('Tested paths: "' . json_encode($allowedPaths) . '"');
+        }
+
         return $match;
     }
 
@@ -617,8 +640,17 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
      */
     public function checkPath()
     {
-        if (!$this->isExists || !$this->isValidPath()) {
+        if (!$this->isExists) {
             $langKey = $this->isDir ? 'DIRECTORY_NOT_EXIST' : 'FILE_DOES_NOT_EXIST';
+            app()->error($langKey, [$this->pathRelative]);
+        }
+
+        if (!$this->isValidPath()) {
+            if ($this->isSymlink()) {
+                $langKey = 'INVALID_SYMLINK_PATH';
+            } else {
+                $langKey = $this->isDir ? 'INVALID_DIRECTORY_PATH' : 'INVALID_FILE_PATH';
+            }
             app()->error($langKey, [$this->pathRelative]);
         }
     }
