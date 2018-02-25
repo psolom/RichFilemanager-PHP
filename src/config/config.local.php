@@ -59,6 +59,11 @@ $config = [
          */
         "readOnly" => false,
         /**
+         * Default value "true".
+         * Sanitize file/folder name, replaces gaps and some other special chars.
+         */
+        "normalizeFilename" => true,
+        /**
          * Filename extensions are compared against this list, after the right-most dot '.'
          * Matched files will be filtered from listing results, and will be restricted from all file operations (both read and write).
          */
@@ -140,10 +145,23 @@ $config = [
             ],
         ],
         /**
-         * Default value "true".
-         * Sanitize file/folder name, replaces gaps and some other special chars.
+         * Rules for symbolic links that point to files/folders OUTSIDE the `fileroot` folder.
+         * Targets of symbolic links INSIDE the `fileroot` folder are allowed by default.
          */
-        "normalizeFilename" => true,
+        "symlinks" => [
+            /**
+             * Default value "false".
+             * Allow to link ANY path when set to "true" - quite unsecure.
+             * Target path will be restricted only by OS permissions.
+             */
+            "allowAll" => false,
+            /**
+             * List of files/folders that can be linked with symlinks.
+             * All contents of listed folder are allowed to be linked as well.
+             * Use absolute server paths.
+             */
+            "allowPaths" => [],
+        ],
     ],
     /**
      * Upload section
