@@ -619,8 +619,9 @@ class ItemModel extends BaseItemModel implements ItemModelInterface
         $realPathRoot = realpath($this->storage->getRoot());
         array_unshift($allowedPaths, $realPathRoot);
 
-        // clean up paths for more accurate comparison
+        // clean up paths for more accurate comparison, requires for IIS servers
         $allowedPaths = array_map([$this->storage, 'cleanPath'], $allowedPaths);
+        $realPathItem = $this->storage->cleanPath($realPathItem);
 
         $match = starts_with($realPathItem, $allowedPaths);
         if (!$match) {
