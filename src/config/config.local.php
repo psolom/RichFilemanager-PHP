@@ -178,6 +178,11 @@ $config = [
          * If set to "true" files will be overwritten on uploads if they have same names, otherwise an index will be added.
          */
         "overwrite" => false,
+        /**
+         * Upload parameter name, that is expected to contains uploaded file data - $_FILES[paramName].
+         * Good usecase example is CKEditor image upload plugin, that sends files within "upload" name.
+         */
+        "paramName" => "upload",
     ],
     /**
      * Images section

@@ -43,6 +43,7 @@ class LocalApi implements ApiInterface
             ],
             'upload' => [
                 'fileSizeLimit' => $this->storage->config('upload.fileSizeLimit'),
+                'paramName' => $this->storage->config('upload.paramName'),
             ],
             'viewer' => [
                 'absolutePath' => $this->storage->config('viewer.absolutePath'),
@@ -189,8 +190,9 @@ class LocalApi implements ApiInterface
 
         $itemData = null;
         $responseData = [];
+        $paramName = $this->storage->config('upload.paramName');
         $content = $this->storage->initUploader($model)->post(false);
-        $files = isset($content['files']) ? $content['files'] : null;
+        $files = isset($content[$paramName]) ? $content[$paramName] : null;
 
         // there is only one file in the array as long as "singleFileUploads" is set to "true"
         if ($files && is_array($files) && is_object($files[0])) {

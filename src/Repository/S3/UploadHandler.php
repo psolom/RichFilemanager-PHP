@@ -35,7 +35,7 @@ class UploadHandler extends BaseUploadHandler
         $this->storage = $this->options['storage'];
 
         $this->options['upload_dir'] = $this->model->getAbsolutePath();
-        $this->options['param_name'] = 'files';
+        $this->options['param_name'] = $this->storage->config('upload.paramName');
         $this->options['readfile_chunk_size'] = 10 * 1024 * 1024;
         $this->options['max_file_size'] = $this->storage->config('upload.fileSizeLimit');
         // ItemModel::checkWritePermission() is used instead of this regex check
