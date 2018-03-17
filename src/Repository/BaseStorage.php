@@ -54,8 +54,11 @@ abstract class BaseStorage
 
         // exclude image thumbnails folder from the output
         if ($this->config('security.patterns.policy') === 'DISALLOW_LIST') {
+            $configKey = $this->getName() . '.security.patterns.restrictions';
             $pattern = $this->buildPathPattern($this->config('images.thumbnail.dir'), true);
-            app('config')->push($this->getName() . '.security.patterns.restrictions', $pattern);
+            $patterns = config($configKey, []);
+            $patterns[] = $pattern;
+            config([$configKey => $patterns]);
         }
     }
 

@@ -7,17 +7,27 @@ use Illuminate\Container\Container;
 /**
  * Get the available container instance.
  *
- * @param  string  $make
- * @param  array   $parameters
- * @return mixed|\RFM\Application
+ * @param null $make
+ * @param array $parameters
+ * @return Container
  */
-function app($make = null, $parameters = [])
+function container($make = null, $parameters = [])
 {
     if (is_null($make)) {
         return Container::getInstance();
     }
 
     return Container::getInstance()->make($make, $parameters);
+}
+
+/**
+ * Get the RFM application instance.
+ *
+ * @return \RFM\Application
+ */
+function app()
+{
+    return container('richfilemanager');
 }
 
 /**
@@ -32,14 +42,18 @@ function app($make = null, $parameters = [])
 function config($key = null, $default = null)
 {
     if (is_null($key)) {
-        return app('config');
+        return container('config');
     }
 
     if (is_array($key)) {
-        return app('config')->set($key);
+        $keys = [];
+        foreach ($key as $k => $value) {
+            $keys[app()->prefixed($k)] = $value;
+        }
+        return container('config')->set($keys);
     }
 
-    return app('config')->get($key, $default);
+    return container('config')->get(app()->prefixed($key), $default);
 }
 
 /**
@@ -49,7 +63,7 @@ function config($key = null, $default = null)
  */
 function request()
 {
-    return app('request');
+    return container('request');
 }
 
 /**
@@ -59,7 +73,7 @@ function request()
  */
 function logger()
 {
-    return app('logger');
+    return container('logger');
 }
 
 /**
@@ -69,7 +83,7 @@ function logger()
  */
 function dispatcher()
 {
-    return app('dispatcher');
+    return container('dispatcher');
 }
 
 // https://gist.github.com/Erutan409/8e774dfb2b343fe78b14

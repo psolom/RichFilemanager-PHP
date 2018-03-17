@@ -3,7 +3,6 @@
 namespace RFM;
 
 use Illuminate\Config\Repository;
-use Illuminate\Container\Container;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use RFM\Repository\StorageInterface;
@@ -12,6 +11,8 @@ use RFM\Event\Api as ApiEvent;
 use function RFM\config;
 use function RFM\logger;
 use function RFM\request;
+use function RFM\container;
+use function RFM\dispatcher;
 
 // path to "application" folder
 defined('FM_APP_PATH') or define('FM_APP_PATH', dirname(__FILE__));
@@ -20,7 +21,8 @@ defined('FM_ROOT_PATH') or define('FM_ROOT_PATH', dirname(dirname(__FILE__)));
 // path to PHP connector root folder
 defined('DS') or define('DS', DIRECTORY_SEPARATOR);
 
-class Application extends Container {
+class Application
+{
     /**
      * Active API instance.
      *
@@ -29,9 +31,11 @@ class Application extends Container {
     public $api;
 
     /**
-     * @var StorageInterface[]
+     * Prefix of RFM applicatioin for service container.
+     *
+     * @var string
      */
-    private $storageRegistry = [];
+    public static $prefix = 'rfm';
 
     /**
      * The base path of the application installation.
@@ -41,11 +45,16 @@ class Application extends Container {
     protected $basePath;
 
     /**
+     * @var StorageInterface[]
+     */
+    protected static $storageRegistry = [];
+
+    /**
      * All of the loaded configuration files.
      *
      * @var array
      */
-    protected $loadedConfigurations = [];
+    protected static $loadedConfigurations = [];
 
     /**
      * Application constructor.
@@ -60,7 +69,7 @@ class Application extends Container {
 
         $this->basePath = $basePath;
 
-        $this->bootstrapContainer();
+        $this->registerRFM();
         $this->registerConfigBindings();
         $this->registerLoggerBindings();
         $this->registerRequestBindings();
@@ -77,6 +86,17 @@ class Application extends Container {
     }
 
     /**
+     * Return source string prefixed with app prefix.
+     *
+     * @param string $string
+     * @return string
+     */
+    public function prefixed($string)
+    {
+        return static::$prefix . '.' . $string;
+    }
+
+    /**
      * Add storage to the collection.
      *
      * @param StorageInterface $storage
@@ -85,7 +105,7 @@ class Application extends Container {
     {
         $name = $storage->getName();
 
-        $this->storageRegistry[$name] = $storage;
+        static::$storageRegistry[$name] = $storage;
     }
 
     /**
@@ -97,91 +117,11 @@ class Application extends Container {
      */
     public function getStorage($name)
     {
-        if(!isset($this->storageRegistry[$name])) {
+        if(!isset(static::$storageRegistry[$name])) {
             throw new \Exception("Storage with name \"{$name}\" is not set.");
         }
 
-        return $this->storageRegistry[$name];
-    }
-
-    /**
-     * Bootstrap the application container.
-     *
-     * @return void
-     */
-    protected function bootstrapContainer()
-    {
-        static::setInstance($this);
-
-        $this->instance('app', $this);
-        $this->instance('RFM\Application', $this);
-    }
-
-    /**
-     * Register container bindings for the application.
-     *
-     * @return void
-     */
-    protected function registerRequestBindings()
-    {
-        $this->singleton('request', function () {
-            return Request::createFromGlobals();
-        });
-    }
-
-    /**
-     * Register container bindings for the application.
-     *
-     * @return void
-     */
-    protected function registerLoggerBindings()
-    {
-        $this->singleton('logger', function () {
-            return new Logger();
-        });
-    }
-
-    /**
-     * Register container bindings for the application.
-     *
-     * @return void
-     */
-    protected function registerConfigBindings()
-    {
-        $this->singleton('config', function () {
-            return new Repository();
-        });
-    }
-
-    /**
-     * Register container bindings for the application.
-     *
-     * @return void
-     */
-    protected function registerDispatcherBindings()
-    {
-        $this->singleton('dispatcher', function () {
-            return new EventDispatcher();
-        });
-    }
-
-    /**
-     * Register events listeners.
-     *
-     * @return void
-     */
-    public function registerEventsListeners()
-    {
-        dispatcher()->addListener(ApiEvent\AfterFolderReadEvent::NAME, 'fm_event_api_after_folder_read');
-        dispatcher()->addListener(ApiEvent\AfterFolderSeekEvent::NAME, 'fm_event_api_after_folder_seek');
-        dispatcher()->addListener(ApiEvent\AfterFolderCreateEvent::NAME, 'fm_event_api_after_folder_create');
-        dispatcher()->addListener(ApiEvent\AfterFileUploadEvent::NAME, 'fm_event_api_after_file_upload');
-        dispatcher()->addListener(ApiEvent\AfterFileExtractEvent::NAME, 'fm_event_api_after_file_extract');
-        dispatcher()->addListener(ApiEvent\AfterItemRenameEvent::NAME, 'fm_event_api_after_item_rename');
-        dispatcher()->addListener(ApiEvent\AfterItemCopyEvent::NAME, 'fm_event_api_after_item_copy');
-        dispatcher()->addListener(ApiEvent\AfterItemMoveEvent::NAME, 'fm_event_api_after_item_move');
-        dispatcher()->addListener(ApiEvent\AfterItemDeleteEvent::NAME, 'fm_event_api_after_item_delete');
-        dispatcher()->addListener(ApiEvent\AfterItemDownloadEvent::NAME, 'fm_event_api_after_item_download');
+        return static::$storageRegistry[$name];
     }
 
     /**
@@ -193,17 +133,17 @@ class Application extends Container {
      */
     public function configure($name, $options = [])
     {
-        if (isset($this->loadedConfigurations[$name])) {
+        if (isset(static::$loadedConfigurations[$name])) {
             return;
         }
 
-        $this->loadedConfigurations[$name] = true;
+        static::$loadedConfigurations[$name] = true;
 
         $path = $this->getConfigurationPath($name);
 
         if ($path) {
             $config = $this->mergeConfigs(require $path, $options);
-            $this->make('config')->set($name, $config);
+            config([$name => $config]);
 
             // update logger configuration
             if (config("{$name}.logger.enabled") === true) {
@@ -244,13 +184,78 @@ class Application extends Container {
     }
 
     /**
+     * Register RichFilemanager application instance.
+     */
+    public function registerRFM()
+    {
+        container()->instance('richfilemanager', $this);
+    }
+
+    /**
+     * Register request instance.
+     */
+    public function registerRequestBindings()
+    {
+        container()->singleton('request', function () {
+            return Request::createFromGlobals();
+        });
+    }
+
+    /**
+     * Register logger instance.
+     */
+    public function registerLoggerBindings()
+    {
+        container()->singleton('logger', function () {
+            return new Logger();
+        });
+    }
+
+    /**
+     * Register configuration repository instance.
+     */
+    public function registerConfigBindings()
+    {
+        container()->singleton('config', function () {
+            return new Repository();
+        });
+    }
+
+    /**
+     * Register events dispatcher instance.
+     */
+    public function registerDispatcherBindings()
+    {
+        container()->singleton('dispatcher', function () {
+            return new EventDispatcher();
+        });
+    }
+
+    /**
+     * Register events listeners.
+     */
+    public function registerEventsListeners()
+    {
+        dispatcher()->addListener(ApiEvent\AfterFolderReadEvent::NAME, 'fm_event_api_after_folder_read');
+        dispatcher()->addListener(ApiEvent\AfterFolderSeekEvent::NAME, 'fm_event_api_after_folder_seek');
+        dispatcher()->addListener(ApiEvent\AfterFolderCreateEvent::NAME, 'fm_event_api_after_folder_create');
+        dispatcher()->addListener(ApiEvent\AfterFileUploadEvent::NAME, 'fm_event_api_after_file_upload');
+        dispatcher()->addListener(ApiEvent\AfterFileExtractEvent::NAME, 'fm_event_api_after_file_extract');
+        dispatcher()->addListener(ApiEvent\AfterItemRenameEvent::NAME, 'fm_event_api_after_item_rename');
+        dispatcher()->addListener(ApiEvent\AfterItemCopyEvent::NAME, 'fm_event_api_after_item_copy');
+        dispatcher()->addListener(ApiEvent\AfterItemMoveEvent::NAME, 'fm_event_api_after_item_move');
+        dispatcher()->addListener(ApiEvent\AfterItemDeleteEvent::NAME, 'fm_event_api_after_item_delete');
+        dispatcher()->addListener(ApiEvent\AfterItemDownloadEvent::NAME, 'fm_event_api_after_item_download');
+    }
+
+    /**
      * Invokes API action based on request params and returns response
      *
      * @throws \Exception
      */
     public function run()
     {
-        if (count($this->storageRegistry) === 0) {
+        if (count(static::$storageRegistry) === 0) {
             throw new \Exception("No storage has been set.");
         }
 
