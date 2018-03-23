@@ -264,111 +264,110 @@ class Application
         }
 
         $response = null;
+        $method = request()->getMethod();
         $mode = request()->get('mode');
 
         if (empty($mode)) {
             $this->error('MODE_ERROR');
         }
 
-        if (request()->isMethod('GET')) {
-            switch($mode) {
-                case 'initiate':
+        switch($mode) {
+            case 'initiate':
+                if ($method === 'GET') {
                     $response = $this->api->actionInitiate();
-                    break;
+                }
+                break;
 
-                case 'getinfo':
-                    if(request()->get('path')) {
-                        $response = $this->api->actionGetInfo();
-                    }
-                    break;
+            case 'getinfo':
+                if ($method === 'GET' && request()->get('path')) {
+                    $response = $this->api->actionGetInfo();
+                }
+                break;
 
-                case 'readfolder':
-                    if(request()->get('path')) {
-                        $response = $this->api->actionReadFolder();
-                    }
-                    break;
+            case 'readfolder':
+                if ($method === 'GET' && request()->get('path')) {
+                    $response = $this->api->actionReadFolder();
+                }
+                break;
 
-                case 'seekfolder':
-                    if(request()->get('path') && request()->get('string')) {
-                        $response = $this->api->actionSeekFolder();
-                    }
-                    break;
+            case 'seekfolder':
+                if ($method === 'GET' && request()->get('path') && request()->get('string')) {
+                    $response = $this->api->actionSeekFolder();
+                }
+                break;
 
-                case 'rename':
-                    if(request()->get('old') && request()->get('new')) {
-                        $response = $this->api->actionRename();
-                    }
-                    break;
+            case 'rename':
+                if ($method === 'GET' && request()->get('old') && request()->get('new')) {
+                    $response = $this->api->actionRename();
+                }
+                break;
 
-                case 'copy':
-                    if(request()->get('source') && request()->get('target')) {
-                        $response = $this->api->actionCopy();
-                    }
-                    break;
+            case 'copy':
+                if ($method === 'GET' && request()->get('source') && request()->get('target')) {
+                    $response = $this->api->actionCopy();
+                }
+                break;
 
-                case 'move':
-                    if(request()->get('old') && request()->get('new')) {
-                        $response = $this->api->actionMove();
-                    }
-                    break;
+            case 'move':
+                if ($method === 'GET' && request()->get('old') && request()->get('new')) {
+                    $response = $this->api->actionMove();
+                }
+                break;
 
-                case 'delete':
-                    if(request()->get('path')) {
-                        $response = $this->api->actionDelete();
-                    }
-                    break;
+            case 'delete':
+                if ($method === 'GET' && request()->get('path')) {
+                    $response = $this->api->actionDelete();
+                }
+                break;
 
-                case 'addfolder':
-                    if(request()->get('path') && request()->get('name')) {
-                        $response = $this->api->actionAddFolder();
-                    }
-                    break;
+            case 'addfolder':
+                if ($method === 'GET' && request()->get('path') && request()->get('name')) {
+                    $response = $this->api->actionAddFolder();
+                }
+                break;
 
-                case 'download':
-                    if(request()->get('path')) {
-                        $response = $this->api->actionDownload();
-                    }
-                    break;
+            case 'download':
+                if ($method === 'GET' && request()->get('path')) {
+                    $response = $this->api->actionDownload();
+                }
+                break;
 
-                case 'getimage':
-                    if(request()->get('path')) {
-                        $thumbnail = isset($_GET['thumbnail']);
-                        $this->api->actionGetImage($thumbnail);
-                    }
-                    break;
+            case 'getimage':
+                if ($method === 'GET' && request()->get('path')) {
+                    $thumbnail = isset($_GET['thumbnail']);
+                    $this->api->actionGetImage($thumbnail);
+                }
+                break;
 
-                case 'readfile':
-                    if(request()->get('path')) {
-                        $this->api->actionReadFile();
-                    }
-                    break;
+            case 'readfile':
+                if (($method === 'GET' || $method === 'HEAD') && request()->get('path')) {
+                    $this->api->actionReadFile();
+                }
+                break;
 
-                case 'summarize':
+            case 'summarize':
+                if ($method === 'GET') {
                     $response = $this->api->actionSummarize();
-                    break;
-            }
-        }
+                }
+                break;
 
-        if (request()->isMethod('POST')) {
-            switch($mode) {
-                case 'upload':
-                    if(request()->get('path')) {
-                        $response = $this->api->actionUpload();
-                    }
-                    break;
+            case 'upload':
+                if ($method === 'POST' && request()->get('path')) {
+                    $response = $this->api->actionUpload();
+                }
+                break;
 
-                case 'savefile':
-                    if(request()->get('path') && request()->get('content')) {
-                        $response = $this->api->actionSaveFile();
-                    }
-                    break;
+            case 'savefile':
+                if ($method === 'POST' && request()->get('path') && request()->get('content')) {
+                    $response = $this->api->actionSaveFile();
+                }
+                break;
 
-                case 'extract':
-                    if(request()->get('source') && request()->get('target')) {
-                        $response = $this->api->actionExtract();
-                    }
-                    break;
-            }
+            case 'extract':
+                if ($method === 'POST' && request()->get('source') && request()->get('target')) {
+                    $response = $this->api->actionExtract();
+                }
+                break;
         }
 
         if (is_null($response)) {
