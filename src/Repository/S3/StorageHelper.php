@@ -116,13 +116,15 @@ class StorageHelper
         // to use PHP functions like copy(), rename() etc.
         // https://docs.aws.amazon.com/aws-sdk-php/v3/guide/service/s3-stream-wrapper.html
         $this->client->registerStreamWrapper();
-
-        // set default params for S3 StreamWrapper
-        stream_context_set_default([
-            's3' => [
-                'ServerSideEncryption' => $this->encryption,
-            ]
-        ]);
+        
+        if(!empty($this->encryption)){
+            // set default params for S3 StreamWrapper
+            stream_context_set_default([
+                's3' => [
+                    'ServerSideEncryption' => $this->encryption,
+                ]
+            ]);
+        }
     }
 
     /**
