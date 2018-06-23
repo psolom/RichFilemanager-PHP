@@ -467,6 +467,6 @@ class Application
      */
     public function version()
     {
-        return 'RichFilemanager PHP connector v1.2.4';
+        return 'RichFilemanager PHP connector v1.2.5';
     }
 }
