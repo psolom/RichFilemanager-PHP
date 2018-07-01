@@ -53,7 +53,7 @@ $config = [
          * "START_WITH" - check if a filename starts with a search string.
          * "WILDCARD" - check if a filename match the given shell wildcard pattern (see PHP fnmatch() function).
          */
-        "searchMode" => \RFM\Repository\BaseStorage::SERACH_MODE_START_WITH,
+        "searchMode" => \RFM\Repository\BaseStorage::SEARCH_MODE_START_WITH,
     ],
     /**
      * Security section

@@ -19,8 +19,8 @@ abstract class BaseStorage
 {
     const STORAGE_S3_NAME = 's3';
     const STORAGE_LOCAL_NAME = 'local';
-    const SERACH_MODE_START_WITH = 'START_WITH';
-    const SERACH_MODE_WILDCARD = 'WILDCARD';
+    const SEARCH_MODE_START_WITH = 'START_WITH';
+    const SEARCH_MODE_WILDCARD = 'WILDCARD';
 
     /**
      * Storage name string.
@@ -168,9 +168,9 @@ abstract class BaseStorage
     public function compareFilename($filename, $string)
     {
         switch ($this->config('options.searchMode')) {
-            case self::SERACH_MODE_START_WITH:
+            case self::SEARCH_MODE_START_WITH:
                 return starts_with(mb_strtolower($filename), mb_strtolower($string));
-            case self::SERACH_MODE_WILDCARD:
+            case self::SEARCH_MODE_WILDCARD:
                 return fnmatch(mb_strtolower($string), mb_strtolower($filename));
             default:
                 return false;
