@@ -141,8 +141,7 @@ class LocalApi implements ApiInterface
             $filename = $spl->getFilename();
             $pathname = $spl->getPathname();
 
-            // case insensitive comparison
-            if (starts_with(mb_strtolower($filename), mb_strtolower($searchString))) {
+            if ($this->storage->compareFilename($filename, $searchString)) {
                 // directory path must end with slash
                 $pathname .= $spl->isDir() ? '/' : '';
 

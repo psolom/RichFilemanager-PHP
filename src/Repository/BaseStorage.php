@@ -19,6 +19,8 @@ abstract class BaseStorage
 {
     const STORAGE_S3_NAME = 's3';
     const STORAGE_LOCAL_NAME = 'local';
+    const SERACH_MODE_START_WITH = 'START_WITH';
+    const SERACH_MODE_WILDCARD = 'WILDCARD';
 
     /**
      * Storage name string.
@@ -79,7 +81,7 @@ abstract class BaseStorage
      */
     public function buildPathPattern($path, $isDir = false)
     {
-        $path = '*/'. $path . ($isDir ? '/*' : '');
+        $path = '*/' . $path . ($isDir ? '/*' : '');
 
         return $this->cleanPath($path);
     }
@@ -107,26 +109,26 @@ abstract class BaseStorage
     public function normalizeString($string, $allowed = [])
     {
         $allow = '';
-        if(!empty($allowed)) {
+        if (!empty($allowed)) {
             foreach ($allowed as $value) {
                 $allow .= "\\$value";
             }
         }
 
-        if($this->config('security.normalizeFilename') === true) {
+        if ($this->config('security.normalizeFilename') === true) {
             // Remove path information and dots around the filename, to prevent uploading
             // into different directories or replacing hidden system files.
             // Also remove control characters and spaces (\x00..\x20) around the filename:
             $string = trim(basename(stripslashes($string)), ".\x00..\x20");
 
             // Replace chars which are not related to any language
-            $replacements = [' '=>'_', '\''=>'_', '/'=>'', '\\'=>''];
+            $replacements = [' ' => '_', '\'' => '_', '/' => '', '\\' => ''];
             $string = strtr($string, $replacements);
         }
 
-        if($this->config('options.charsLatinOnly') === true) {
+        if ($this->config('options.charsLatinOnly') === true) {
             // transliterate if extension is loaded
-            if(extension_loaded('intl') === true && function_exists('transliterator_transliterate')) {
+            if (extension_loaded('intl') === true && function_exists('transliterator_transliterate')) {
                 $options = 'Any-Latin; Latin-ASCII; NFD; [:Nonspacing Mark:] Remove; NFC;';
                 $string = transliterator_transliterate($options, $string);
             }
@@ -153,6 +155,26 @@ abstract class BaseStorage
             "image/svg+xml",
         ];
         return in_array($mime, $imagesMime);
+    }
+
+    /**
+     * Check if a filename matches a given string.
+     * The comparison is case insensitive.
+     *
+     * @param string $filename
+     * @param string $string
+     * @return bool
+     */
+    public function compareFilename($filename, $string)
+    {
+        switch ($this->config('options.searchMode')) {
+            case self::SERACH_MODE_START_WITH:
+                return starts_with(mb_strtolower($filename), mb_strtolower($string));
+            case self::SERACH_MODE_WILDCARD:
+                return fnmatch(mb_strtolower($string), mb_strtolower($filename));
+            default:
+                return false;
+        }
     }
 
     /**
