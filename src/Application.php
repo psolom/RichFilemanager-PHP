@@ -400,12 +400,13 @@ class Application
             'meta' => $meta,
         ];
 
+        header('Content-Type: application/json');
+        header('HTTP/1.1 500 Internal Server Error');
+        
         echo json_encode([
             'errors' => [$error_object],
         ]);
 
-        header('Content-Type: application/json');
-        header('HTTP/1.1 500 Internal Server Error');
         exit;
     }
 
