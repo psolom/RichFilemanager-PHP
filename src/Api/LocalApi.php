@@ -659,6 +659,11 @@ class LocalApi implements ApiInterface
         $event = new ApiEvent\AfterItemDownloadEvent($model->getData());
         dispatcher()->dispatch($event::NAME, $event);
 
+	    // Unlink the zip file to prevent appending to it
+	    if (isset($destinationPath)) {
+		    unlink($destinationPath);
+	    }
+
         Log::info('downloaded "' . $targetPath . '"');
         exit;
     }
