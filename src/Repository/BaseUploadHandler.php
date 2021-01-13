@@ -483,7 +483,8 @@ class BaseUploadHandler
             $name = $this->upcount_name($name);
         }
         // Keep an existing filename if this is part of a chunked upload:
-        $uploaded_bytes = $this->fix_integer_overflow($content_range[1]);
+        $content = isset($content_range[1])?(int)$content_range[1]:0;
+        $uploaded_bytes = $this->fix_integer_overflow($content);
         while(is_file($this->get_upload_path($name))) {
             $file_size = $this->get_file_size($this->get_upload_path($name));
             if ($uploaded_bytes === $file_size) {
