@@ -460,7 +460,9 @@ class Storage extends BaseStorage implements StorageInterface
 
             echo fread($handle, $chunk);
             flush();
-            ob_flush();
+            if(ob_get_level() > 1) {
+                ob_flush();
+            }
 
             $position += $chunk;
         }
