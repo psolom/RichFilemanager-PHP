@@ -195,6 +195,11 @@ class UploadHandler extends BaseUploadHandler
                 return false;
             }
         }
+        $img_info = $this->get_image_size($uploaded_file);
+        if ($img_info['mime'] !== $file->type) {
+            $file->error = $this->get_error_message('type_mismatch');
+            return false;
+        }
         return true;
     }
 

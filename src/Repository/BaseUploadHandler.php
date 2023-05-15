@@ -46,7 +46,8 @@ class BaseUploadHandler
         'max_height' => 'Image exceeds maximum height',
         'min_height' => 'Image requires a minimum height',
         'abort' => 'File upload aborted',
-        'image_resize' => 'Failed to resize image'
+        'image_resize' => 'Failed to resize image',
+        'type_mismatch' => 'File content does not match file extension',
     );
 
     protected $image_objects = array();
@@ -683,6 +684,21 @@ class BaseUploadHandler
         return true;
     }
 
+    protected function gd_write_func($type, $src_img, $new_file_path, $image_quality = null)
+    {
+        switch ($type) {
+            case 'jpg':
+            case 'jpeg':
+                return imagejpeg($src_img, $new_file_path, $image_quality);
+            case 'gif':
+                return imagegif($src_img, $new_file_path);
+            case 'png':
+                return imagepng($src_img, $new_file_path, $image_quality);
+        }
+
+        return false;
+    }
+
     protected function gd_create_scaled_image($file, $version, $options) {
         if (!function_exists('imagecreatetruecolor')) {
             error_log('Function not found: imagecreatetruecolor');
@@ -694,18 +710,15 @@ class BaseUploadHandler
             case 'jpg':
             case 'jpeg':
                 $src_func = 'imagecreatefromjpeg';
-                $write_func = 'imagejpeg';
                 $image_quality = isset($options['jpeg_quality']) ?
                     $options['jpeg_quality'] : 75;
                 break;
             case 'gif':
                 $src_func = 'imagecreatefromgif';
-                $write_func = 'imagegif';
                 $image_quality = null;
                 break;
             case 'png':
                 $src_func = 'imagecreatefrompng';
-                $write_func = 'imagepng';
                 $image_quality = isset($options['png_quality']) ?
                     $options['png_quality'] : 9;
                 break;
@@ -742,7 +755,7 @@ class BaseUploadHandler
         );
         if ($scale >= 1) {
             if ($image_oriented) {
-                return $write_func($src_img, $new_file_path, $image_quality);
+                return $this->gd_write_func($type, $src_img, $new_file_path, $image_quality);
             }
             if ($file->path !== $new_file_path) {
                 return copy($file->path, $new_file_path);
@@ -788,7 +801,7 @@ class BaseUploadHandler
             $new_height,
             $img_width,
             $img_height
-        ) && $write_func($new_img, $new_file_path, $image_quality);
+        ) && $this->gd_write_func($type, $src_img, $new_file_path, $image_quality);
         $this->gd_set_image_object($file->path, $new_img);
         return $success;
     }
