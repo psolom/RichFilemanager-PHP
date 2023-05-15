@@ -46,7 +46,8 @@ class BaseUploadHandler
         'max_height' => 'Image exceeds maximum height',
         'min_height' => 'Image requires a minimum height',
         'abort' => 'File upload aborted',
-        'image_resize' => 'Failed to resize image'
+        'image_resize' => 'Failed to resize image',
+        'type_mismatch' => 'File content does not match file extension',
     );
 
     protected $image_objects = array();
